@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "io.igx.cloud.robo";
+
+service GameService {
+    rpc connect(ConnectRequest) returns (Robot);
+    rpc join(stream Action) returns (stream FrameUpdate);
+}
+
+message ConnectRequest{
+    string name = 1;
+}
+
+message Robot {
+    string id = 1;
+    string name = 2;
+    Coordinates coordinates = 3;
+    float speed = 4;
+    float bearing = 5;
+    int32 health = 6;
+    int32 score = 7;
+    int32 projectiles = 8;
+}
+
+message FrameUpdate{
+    int64 timestamp = 1;
+    int32 deltaTiming = 2;
+    Robot robotState = 3;
+    EventType eventType = 4;
+    oneof event {
+        StartedEvent startedEvent = 100;
+        DestroyedEvent destroyedEvent = 101;
+        HitByEvent hitByEvent = 102;
+        HitEnemyEvent hitEnemyEvent = 103;
+        EnemyDetectedEvent enemyDetectedEvent = 104;
+        RotationFinishedEvent rotationFinishedEvent = 105;
+    }
+}
+
+message Action {
+    int64 timestamp = 1;
+    string id = 2;
+    ActionType actionType = 3;
+
+}
+
+message Coordinates {
+    int32 x = 1;
+    int32 y = 2;
+}
+
+message StartedEvent {
+
+}
+
+message DestroyedEvent {
+
+}
+
+message HitByEvent {
+
+}
+
+message HitEnemyEvent {
+
+}
+
+message EnemyDetectedEvent {
+
+}
+
+message RotationFinishedEvent {
+
+}
+
+enum EventType {
+    STARTED = 0;
+    DESTROYED = 1;
+    HIT_BY = 2;
+    HIT_ENEMY = 3;
+    COLISION_DETECTED = 4;
+    ENEMY_DETECTED = 5;
+    ACTION_FINISHED = 6;
+}
+
+enum ActionType {
+    JOIN = 0;
+    STOP = 1;
+    ROTATE = 2;
+    ACCELERATE = 3;
+    FIRE = 4;
+    LEAVE = 5;
+}
