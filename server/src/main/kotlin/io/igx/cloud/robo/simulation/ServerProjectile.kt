@@ -1,5 +1,6 @@
-package io.igx.cloud.robo
+package io.igx.cloud.robo.simulation
 
+import io.igx.cloud.robo.Movable
 import org.apache.commons.math3.geometry.euclidean.twod.Vector2D
 
 /**

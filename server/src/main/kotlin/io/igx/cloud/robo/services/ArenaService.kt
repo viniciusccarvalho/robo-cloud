@@ -2,12 +2,15 @@ package io.igx.cloud.robo.services
 
 import io.grpc.stub.StreamObserver
 import io.igx.cloud.robo.FrameUpdate
-import io.igx.cloud.robo.ServerRobot
+import io.igx.cloud.robo.simulation.WorldConfig
+import io.igx.cloud.robo.simulation.ServerRobot
 import kotlinx.coroutines.experimental.Job
 import kotlinx.coroutines.experimental.channels.Channel
 import kotlinx.coroutines.experimental.delay
 import kotlinx.coroutines.experimental.launch
 import mu.KotlinLogging
+import org.apache.commons.math3.geometry.euclidean.twod.Vector2D
+import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -17,7 +20,7 @@ import kotlin.concurrent.withLock
  * The ArenaService is responsible to maintain the state of a match, update the frames,
  * detect collisions.
  */
-class ArenaService {
+class ArenaService(val config: WorldConfig = WorldConfig()) {
 
     var activeRobots = mutableListOf<ServerRobot>()
     var destroyedRobots = mutableListOf<ServerRobot>()
@@ -28,6 +31,7 @@ class ArenaService {
     var running = AtomicBoolean(false)
     var delta = 0L
     var currentTime = System.currentTimeMillis()
+    val random = Random()
     lateinit var job: Job
     private val logger = KotlinLogging.logger {}
 
@@ -40,34 +44,45 @@ class ArenaService {
         }
     }
 
-    fun register(outgoing: StreamObserver<FrameUpdate>) : ServerRobot {
-        val robot = ServerRobot(outgoing)
+    fun register(outgoing: StreamObserver<FrameUpdate>): ServerRobot {
         logger.info { "Registering a new bot" }
+        var robot: ServerRobot? = null
         robotLock.withLock {
-            activeRobots.add(robot)
+            val robotCenter = findRobotSpot()
+            val angle = Math.toDegrees(Math.atan2(robotCenter.y - 0.0, robotCenter.x - 0.0))
+            robot = ServerRobot(outgoing, center = robotCenter, bearing = angle)
+            activeRobots.add(robot!!)
+            logger.info { "Created robot with initial configuration: ${robot!!.getState()}" }
+
         }
-        return robot
+        return robot!!
+    }
+
+    private fun findRobotSpot(): Vector2D {
+        val xLimit = config.screen.width / 2 - config.botBox.width / 2
+        val yLimit = config.screen.height / 2 - config.botBox.height / 2
+        return Vector2D((random.nextInt(xLimit * 2) - xLimit).toDouble(), (random.nextInt(yLimit * 2) - yLimit).toDouble())
     }
 
     fun watch(channel: Channel<Long>) = watchers.add(channel)
 
     private suspend fun updateWorld() {
-        while(isRunning()){
+        while (isRunning()) {
             currentTime += ticks
             delta = currentTime - System.currentTimeMillis()
 
             robotLock.withLock {
-                for(robot in activeRobots){
+                for (robot in activeRobots) {
                     robot.updateCoordinates(delta)
                 }
                 activeRobots.forEach { it.broadcast() }
             }
 
-            for(channel in watchers){
+            for (channel in watchers) {
                 channel.send(System.currentTimeMillis())
             }
 
-            if(delta > 0){
+            if (delta > 0) {
                 delay(delta)
             }
         }
@@ -87,7 +102,7 @@ class ArenaService {
 
     }
 
-    private fun isRunning() : Boolean {
+    private fun isRunning(): Boolean {
         return running.get()
     }
 }

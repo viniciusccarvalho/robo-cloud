@@ -1,17 +1,19 @@
-package io.igx.cloud.robo
+package io.igx.cloud.robo.simulation
 
 import io.grpc.stub.StreamObserver
+import io.igx.cloud.robo.*
 import mu.KotlinLogging
 import org.apache.commons.math3.geometry.euclidean.twod.Vector2D
 import java.util.*
 
 /**
- * @author vinicius
+ * @author Vinicius Carvalho
+ *
  * The ServerRobot is responsible to update the internal state represented via the Robot entity.
  * Internal state is queued upon receive of Action stream events, the ArenaService will request an update
  * to the internal state and any perceived event is then sent back to the clients
  */
-class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2D = Vector2D(0.0, 0.0), var bearing: Double = 0.0) : Movable{
+class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2D = Vector2D(0.0, 0.0), var bearing: Double = 0.0, val worldConfig: WorldConfig = WorldConfig()) : Movable {
 
     var rotationDirection = 0.0
     var acceleration = 0.0
@@ -26,7 +28,8 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2
     val radar: Radar
 
     init {
-        radar = Radar(center, bearing)
+        val range = Math.sqrt(Math.pow(worldConfig.screen.width.toDouble(), 2.0) + Math.pow(worldConfig.screen.height.toDouble(), 2.0)) * 1.2
+        radar = Radar(center, bearing, range)
     }
 
     private val logger = KotlinLogging.logger {}
@@ -50,15 +53,7 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2
 
     fun broadcast() {
         val timestamp = System.currentTimeMillis()
-        val robot = Robot.newBuilder()
-                .setId(id)
-                .setSpeed(speed)
-                .setBearing(bearing)
-                .setHealth(health)
-                .setScore(score)
-                .setProjectiles(projectiles)
-                .setCoordinates(Coordinates.newBuilder().setX(center.x).setY(center.y).build())
-                .build()
+        val robot = getState()
         if(events.isEmpty()){
             outgoing.onNext(FrameUpdate.newBuilder()
                     .setTimestamp(timestamp)
@@ -114,6 +109,18 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2
         }
     }
 
+    fun getState() : Robot {
+        return Robot.newBuilder()
+                .setId(id)
+                .setSpeed(speed)
+                .setBearing(bearing)
+                .setHealth(health)
+                .setScore(score)
+                .setProjectiles(projectiles)
+                .setCoordinates(Coordinates.newBuilder().setX(center.x).setY(center.y).build())
+                .build()
+    }
+
     private fun onActionUpdate(action: Action) {
         when (action.actionType) {
             ActionType.THROTTLE -> this.acceleration = normalize(action.value)
@@ -141,39 +148,5 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2
 }
 
 
-/**
- * The Radar is a projection triangle from the center of the robot towards the end of the screen. It has a ten degree angle between the projection lines, and it's used to find if another robot center is
- * contained within this projection. It's based on Ray Casting algorithms to find if a point is cointained inside a polygon
- */
-class Radar(var center: Vector2D, var bearing: Double, var range: Double = 1000.0) {
-    var points : Array<Vector2D> = Array(3) { _ -> Vector2D(0.0, 0.0) }
 
-    init {
-       update(center, bearing)
-    }
-
-    fun update(center: Vector2D, bearing: Double){
-        points[0] = center
-        points[1] = center.moveTo(Math.toRadians(bearing+5), range)
-        points[2] = center.moveTo(Math.toRadians(bearing-5), range)
-    }
-
-    fun contains(other: Vector2D) : Boolean{
-        var contains = false
-        var i = 0
-        var j = points.size - 1
-        while (i < points.size) {
-            if (points[i].y > other.y != points[j].y > other.y && other.x < (points[j].x - points[i].x) * (other.y - points[i].y) / (points[j].y - points[i].y) + points[i].x) {
-                contains = !contains
-            }
-            j = i++
-        }
-        return contains
-    }
-}
-
-/**
- * Moves a point in space considering the distance and angle
- */
-fun Vector2D.moveTo(angle: Double, distance: Double)  = Vector2D(this.x + (Math.cos(angle) * distance), this.y + (Math.sin(angle)*distance) )
 
