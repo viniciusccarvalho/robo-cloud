@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Robot Server Management Console</title>
+</head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.9.12/paper.js"></script>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.css"/>
+<body>
+<script>
+
+    paper.install(window)
+
+    var bot ;
+    var count = 0;
+
+
+    function connect() {
+        console.log("Begin connect");
+        socket = new WebSocket("ws://" + window.location.host + "/arenas");
+
+        socket.onerror = function() {
+            console.log("socket error");
+        };
+
+        socket.onopen = function() {
+            console.log("Connected");
+        };
+
+        socket.onclose = function(evt) {
+            var explanation = "";
+            if (evt.reason && evt.reason.length > 0) {
+                explanation = "reason: " + evt.reason;
+            } else {
+                explanation = "without a reason specified";
+            }
+
+            console.log("Disconnected with close code " + evt.code + " and " + explanation);
+            setTimeout(connect, 5000);
+        };
+
+        socket.onmessage = function(event) {
+           count++;
+            $('#counter').text(count)
+        };
+    }
+
+    $(document).ready(function() {
+        var canvas = document.getElementById("arena");
+        paper.setup(canvas);
+        bot = new paper.Path.Rectangle(80, 80, 64, 64);
+        bot.style = {
+            fillColor: 'red',
+            strokeColor: 'black'
+        }
+
+        $( "#connectButton" ).click(function() {
+            connect();
+        });
+    });
+
+
+</script>
+<div class="container">
+    <div class="row">
+        <div class="col-lg-10">
+            <canvas id="arena" width="800" height="600" style="background: black"></canvas>
+        </div>
+        <div class="col-lg-2">
+            <button type="button" class="btn" id="connectButton">Connect</button>
+            <p id="counter">0</p>
+        </div>
+    </div>
+
+
+</div>
+</body>
+</html>

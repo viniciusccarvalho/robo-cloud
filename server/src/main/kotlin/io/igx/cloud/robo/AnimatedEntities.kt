@@ -6,7 +6,6 @@ package io.igx.cloud.robo
  */
 
 interface Movable {
-    fun update(delta: Int)
+    fun updateCoordinates(delta: Long)
 }
 
-data class Point(val x: Int, val y: Int)
