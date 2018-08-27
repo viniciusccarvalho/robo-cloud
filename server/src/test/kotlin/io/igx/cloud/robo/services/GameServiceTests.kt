@@ -3,6 +3,7 @@ package io.igx.cloud.robo.services
 import io.grpc.stub.StreamObserver
 import io.igx.cloud.robo.Action
 import io.igx.cloud.robo.ActionType
+import io.igx.cloud.robo.EventType
 import io.igx.cloud.robo.FrameUpdate
 import kotlinx.coroutines.experimental.launch
 import kotlinx.coroutines.experimental.runBlocking
@@ -25,17 +26,23 @@ class GameServiceTests {
         runBlocking {
             val gameService = GameService();
             gameService.start()
-            val latch = CountDownLatch(150)
+            val latch = CountDownLatch(1)
             val bot = MovingBot(latch)
-
+            val bot2 = MovingBot(latch)
             bot.actions.push(Action.newBuilder()
                     .setActionType(ActionType.ROTATE)
                     .setValue(1.0)
                     .setTimestamp(System.currentTimeMillis())
                     .build())
+            bot2.actions.push(Action.newBuilder()
+                    .setActionType(ActionType.ROTATE)
+                    .setValue(1.0)
+                    .setTimestamp(System.currentTimeMillis())
+                    .build())
             bot.connect(gameService.connect(bot.so))
-            bot.await()
-            println(bot.lastFrame)
+            bot2.connect(gameService.connect(bot2.so))
+            latch.await()
+
         }
 
     }
@@ -70,16 +77,18 @@ class MovingBot(val latch: CountDownLatch) {
 
     fun onFrame(frame: FrameUpdate){
         lastFrame = frame
-        latch.countDown()
+
+        if(frame.eventType == EventType.ENEMY_DETECTED) {
+            latch.countDown()
+            println("FIRE!!!! $frame")
+        }
         if(connected.get()){
             val action = actions.poll()
             action?.let { outgoing.onNext(it) }
         }
     }
 
-    fun await(){
-        latch.await()
-    }
+
 
 
 }

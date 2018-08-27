@@ -20,9 +20,10 @@ class Radar(var center: Vector2D, var bearing: Double, var range: Double = 1000.
     }
 
     fun update(center: Vector2D, bearing: Double){
+        this.bearing = bearing
         points[0] = center
-        points[1] = center.moveTo(Math.toRadians(bearing+5), range)
-        points[2] = center.moveTo(Math.toRadians(bearing-5), range)
+        points[1] = center.moveTo(Math.toRadians(this.bearing+5), range)
+        points[2] = center.moveTo(Math.toRadians(this.bearing-5), range)
     }
 
     fun contains(other: Vector2D) : Boolean{

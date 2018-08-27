@@ -1,6 +1,7 @@
 package io.igx.cloud.robo
 
 import io.igx.cloud.robo.simulation.Radar
+import io.igx.cloud.robo.simulation.normalizeAngle
 import org.apache.commons.math3.geometry.euclidean.twod.Vector2D
 import org.junit.Test
 import org.assertj.core.api.Assertions.*
@@ -21,26 +22,28 @@ class RadarTests {
     }
 
     @Test
-    fun rangeTest() {
-        val random = Random()
-        val x = 368
-
-        for(i in 1..100) {
-            println(random.nextInt(x*2)-x)
+    fun `radar finds target`() {
+        var bearing = 250.0
+        val radar = Radar(Vector2D(-112.0, -310.0), bearing, Math.sqrt(1024.0*1024+768*768))
+        radar.points.forEachIndexed{i, v ->
+            println("$i (${v.x}, ${v.y})")
+        }
+        val target = Vector2D(-450.0, 66.0)
+        var ticks = 0
+        while(!radar.contains(target)){
+            bearing += 1.2
+            bearing = normalizeAngle(bearing)
+            ticks++
+            radar.update(radar.center, bearing)
+        }
+        println("Found target at ${bearing} after $ticks ticks")
+        println("Radar status: ")
+        radar.points.forEachIndexed{i, v ->
+            println("$i (${v.x}, ${v.y})")
         }
     }
 
-    fun normalizeAngle(angle: Double) : Double {
-        return angle + Math.ceil( -angle / 360 ) * 360
-    }
 
 
-    @Test
-    fun testAngles() {
-        println(normalizeAngle(361.0))
-        println(normalizeAngle(-2.0))
-        println(normalizeAngle(90.0))
-        println(normalizeAngle(721.0))
-    }
 
 }

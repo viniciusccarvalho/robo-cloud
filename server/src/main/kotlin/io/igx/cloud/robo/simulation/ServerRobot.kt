@@ -61,14 +61,16 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2
                     .setEventType(EventType.STATUS_UPDATED)
                     .build())
         }
-        for(event in events) {
+        while(events.isNotEmpty()){
+            val event = events.pop()
             val builder = FrameUpdate.newBuilder()
             builder.robotState = robot
             builder.timestamp = timestamp
             setEvent(builder, event)
-            outgoing.onNext(builder.build())
+            val frameUpdate = builder.build()
+            println(frameUpdate)
+            outgoing.onNext(frameUpdate)
         }
-
     }
 
     override fun updateCoordinates(delta: Long) {
@@ -93,6 +95,7 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2
 
     private fun setEvent(builder: FrameUpdate.Builder, event : Any) {
         val type = findEventType(event)
+        builder.eventType = type
         when(type) {
             EventType.ENEMY_DETECTED -> builder.enemyDetectedEvent = event as EnemyDetectedEvent
             EventType.HIT_ENEMY -> builder.hitEnemyEvent = event as HitEnemyEvent
@@ -101,10 +104,11 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2
             EventType.HIT_BY -> builder.hitByEvent = event as HitByEvent
             EventType.STARTED -> builder.startedEvent = event as StartedEvent
         }
+
     }
 
     private fun findEventType(type: Any) : EventType {
-        return when(Any::class.java){
+        return when(type.javaClass){
 
             EnemyDetectedEvent::class.java -> EventType.ENEMY_DETECTED
             HitByEvent::class.java -> EventType.HIT_BY
