@@ -43,3 +43,5 @@ class Radar(var center: Vector2D, var bearing: Double, var range: Double = 1000.
  * Moves a point in space considering the distance and angle
  */
 fun Vector2D.moveTo(angle: Double, distance: Double)  = Vector2D(this.x + (Math.cos(angle) * distance), this.y + (Math.sin(angle)*distance) )
+
+fun normalizeAngle(angle: Double) : Double = angle + Math.ceil( -angle / 360 ) * 360

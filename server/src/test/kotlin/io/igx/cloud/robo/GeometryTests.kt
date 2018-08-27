@@ -30,5 +30,17 @@ class RadarTests {
         }
     }
 
+    fun normalizeAngle(angle: Double) : Double {
+        return angle + Math.ceil( -angle / 360 ) * 360
+    }
+
+
+    @Test
+    fun testAngles() {
+        println(normalizeAngle(361.0))
+        println(normalizeAngle(-2.0))
+        println(normalizeAngle(90.0))
+        println(normalizeAngle(721.0))
+    }
 
 }

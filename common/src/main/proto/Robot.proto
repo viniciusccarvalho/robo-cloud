@@ -66,6 +66,8 @@ message HitEnemyEvent {
 }
 
 message EnemyDetectedEvent {
+    int64 timestamp = 1;
+    Robot target = 2;
 
 }
 

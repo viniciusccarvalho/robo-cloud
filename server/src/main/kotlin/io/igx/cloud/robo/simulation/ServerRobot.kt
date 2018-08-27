@@ -73,10 +73,20 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2
 
     override fun updateCoordinates(delta: Long) {
         bearing += rotationDirection * rotationSpeed * delta
-        center = center.moveTo(Math.toRadians(bearing), delta * speed)
+        bearing = normalizeAngle(bearing)
+        center = center.moveTo(Math.toRadians(bearing), delta * speed * acceleration)
         radar.update(center, bearing)
         if(isFiring()){
             projectile.updateCoordinates(delta)
+        }
+    }
+
+    fun scanTarget(target: ServerRobot){
+        if(radar.contains(target.center)){
+            events.add(EnemyDetectedEvent.newBuilder()
+                    .setTimestamp(System.currentTimeMillis())
+                    .setTarget(target.getState())
+                    .build())
         }
     }
 
@@ -144,6 +154,7 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2
     private fun isFiring() : Boolean {
         return  projectiles == 0
     }
+
 
 }
 

@@ -4,6 +4,7 @@ import io.grpc.stub.StreamObserver
 import io.igx.cloud.robo.FrameUpdate
 import io.igx.cloud.robo.simulation.WorldConfig
 import io.igx.cloud.robo.simulation.ServerRobot
+import io.igx.cloud.robo.simulation.normalizeAngle
 import kotlinx.coroutines.experimental.Job
 import kotlinx.coroutines.experimental.channels.Channel
 import kotlinx.coroutines.experimental.delay
@@ -49,7 +50,7 @@ class ArenaService(val config: WorldConfig = WorldConfig()) {
         var robot: ServerRobot? = null
         robotLock.withLock {
             val robotCenter = findRobotSpot()
-            val angle = Math.toDegrees(Math.atan2(robotCenter.y - 0.0, robotCenter.x - 0.0))
+            val angle = normalizeAngle(Math.toDegrees(Math.atan2(robotCenter.y - 0.0, robotCenter.x - 0.0)))
             robot = ServerRobot(outgoing, center = robotCenter, bearing = angle)
             activeRobots.add(robot!!)
             logger.info { "Created robot with initial configuration: ${robot!!.getState()}" }
@@ -64,17 +65,22 @@ class ArenaService(val config: WorldConfig = WorldConfig()) {
         return Vector2D((random.nextInt(xLimit * 2) - xLimit).toDouble(), (random.nextInt(yLimit * 2) - yLimit).toDouble())
     }
 
+
     fun watch(channel: Channel<Long>) = watchers.add(channel)
 
     private suspend fun updateWorld() {
+        currentTime = System.currentTimeMillis()
         while (isRunning()) {
             currentTime += ticks
             delta = currentTime - System.currentTimeMillis()
-
+            if(delta <= 0) {
+                delta = ticks.toLong()
+            }
             robotLock.withLock {
                 for (robot in activeRobots) {
                     robot.updateCoordinates(delta)
                 }
+                detectTargets()
                 activeRobots.forEach { it.broadcast() }
             }
 
@@ -94,6 +100,17 @@ class ArenaService(val config: WorldConfig = WorldConfig()) {
     private fun collisionCheck() {
 
     }
+
+    private fun detectTargets() {
+        for(robot in activeRobots){
+            for(target in activeRobots){
+                if(target.id != robot.id){
+                    robot.scanTarget(target)
+                }
+            }
+        }
+    }
+
 
     fun stop() {
         logger.info { "Shutting down arena Manager, open connections: { ${activeRobots.size + destroyedRobots.size} }" }
