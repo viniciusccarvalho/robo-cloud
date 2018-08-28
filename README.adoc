@@ -40,7 +40,7 @@ Basically the server does:
 while match is active:
  for each active bot:
    update bot state
-   detect collions
+   detect collisions
    detect hits
 broadcast queued events
 ----
@@ -87,6 +87,16 @@ message FrameUpdate{
 
 === The Robot client
 The bots are responsible to implement code that reacts on events sent by the server. Your bot should send `ACTION` messages to the server.
+
+A typical bot implementation would look like:
+
+[source]
+----
+while alive:
+  for each received event:
+     compute internal state
+     send action message
+----
 
 The definition of an Action is:
 
