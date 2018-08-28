@@ -9,11 +9,8 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.css"/>
 <body>
 <script>
-
-
-    var bot ;
-    var count = 0;
-
+    var canvas;
+    var ctx;
 
     function connect() {
         console.log("Begin connect");
@@ -40,13 +37,13 @@
         };
 
         socket.onmessage = function(event) {
-           count++;
-            $('#counter').text(count)
+
         };
     }
 
     $(document).ready(function() {
-        var canvas = document.getElementById("arena");
+        canvas = $("#arena");
+        ctx = canvas.getContext("2d");
 
 
         $( "#connectButton" ).click(function() {

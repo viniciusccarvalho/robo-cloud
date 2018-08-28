@@ -18,6 +18,11 @@ message Robot {
     int32 projectiles = 8;
 }
 
+message Projectile {
+    Coordinates coordinates = 1;
+    double bearing = 2;
+}
+
 message FrameUpdate{
     int64 timestamp = 1;
     int32 deltaTiming = 2;
@@ -54,20 +59,18 @@ message DestroyedEvent {
 }
 
 message HitByEvent {
-
+    int64 timestamp = 1;
+    Robot source = 2;
 }
 
 message HitEnemyEvent {
-
+    int64 timestamp = 1;
+    Robot target = 2;
 }
 
 message EnemyDetectedEvent {
     int64 timestamp = 1;
     Robot target = 2;
-
-}
-
-message RotationFinishedEvent {
 
 }
 
