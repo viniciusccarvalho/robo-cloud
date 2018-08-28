@@ -122,7 +122,7 @@ Actions are supposed to change the state of the bot on the server side.
 
 == Status
 
-There's 3 main projects
+There are 3 main projects
 
 * common: Hosts the proto files, you will need to make sure you `generateProto` task before trying to build the other projects as they depend on generated code from this one
 * core: Core server. Starts the game engine inside a ktor/kodein web server. The goal is to allow a web admin interface to start/stop the GameService
