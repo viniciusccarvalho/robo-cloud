@@ -1,26 +1,26 @@
-== robo-cloud
+= robo-cloud
 
 A robocode like client-server based framework.
 
-=== Motivation
+== Motivation
 
 I have always enjoyed playing with robocode on the earlier 2000s. And I found a bit odd that I could never really find a natural successor
 to it designed to run on a client/server mode.
 
-This project is a take on what could be such sucessor.
+This project is my take on what could be such sucessor.
 
 A lot of the ideas here in this project came from either my memory of robocode or this https://www.ibm.com/developerworks/library/j-robocode/index.html[great article] that presents the project.
 
 Not everything was translated as it is in terms of functionality.
 
-=== Design principles
+== Design principles
 
 I chose https://grpc.io[gRPC] as the protocol to implement the server, this would allow robots to be implemented on any language that supports
 gRPC.
 
 The `common` project has the `Robot.proto` file with all the messages and services, but the bot really need to use one method
 
-[protobuf]
+[source, proto]
 ----
 service GameService {
     rpc connect(stream Action) returns (stream FrameUpdate);
@@ -29,20 +29,68 @@ service GameService {
 
 We use a bi-directional stream. Robots stream `actions` based on `frameUpdates` they receive from the server.
 
-==== The GameService
+=== The GameService
 
-The server handle all the updates to the internal state of the robots (such as positions, collision detection, hits, health, bearing of the robot)
-If an event is detected, for example, if a robot is hit by another robot projectile, the server streams that as an `HIT_BY_ENEMY_EVENT`, if the bot
-collides with another body (robot or wall) then it sends `COLLISION_DETECTED_EVENT`.
+The server handles all the updates to the internal state of each Robot. It reacts on `ACTION` events sent by the clients, and emits it's own events via a `FRAME_UPDATE` message.
 
-All events are mapped on the proto file. The server will manager the battlefield, starting and stopping the battle upon a winner is declared.
+Basically the server does:
+[source]
+----
 
-==== The Robot client
-The bots are responsible to implement code that reacts on events sent by the server. And all they can do is send messages of type `ACTION`
+while match is active:
+ for each active bot:
+   update bot state
+   detect collions
+   detect hits
+broadcast queued events
+----
 
-each action is defined as:
+[source, proto]
+----
+enum EventType {
+    STARTED = 0;
+    DESTROYED = 1;
+    HIT_BY = 2;
+    HIT_ENEMY = 3;
+    COLISION_DETECTED = 4;
+    ENEMY_DETECTED = 5;
+    STATUS_UPDATED = 10;
+}
+message Robot {
+    string id = 1;
+    string name = 2;
+    Coordinates coordinates = 3;
+    double speed = 4;
+    double bearing = 5;
+    int32 health = 6;
+    int32 score = 7;
+    int32 projectiles = 8;
+}
 
-[protobuf]
+message FrameUpdate{
+    int64 timestamp = 1;
+    int32 deltaTiming = 2; <1>
+    Robot robotState = 3;
+    EventType eventType = 4;
+    oneof event { <1>
+        StartedEvent startedEvent = 100;
+        DestroyedEvent destroyedEvent = 101;
+        HitByEvent hitByEvent = 102;
+        HitEnemyEvent hitEnemyEvent = 103;
+        EnemyDetectedEvent enemyDetectedEvent = 104;
+        CollisionDetectedEvent collisionDetectedEvent = 105;
+    }
+}
+----
+<1> Time elapsed between two frame updates
+<2> OneOf is the closest to a Polymorphic model of events I could use, this could change in the future
+
+=== The Robot client
+The bots are responsible to implement code that reacts on events sent by the server. Your bot should send `ACTION` messages to the server.
+
+The definition of an Action is:
+
+[source, proto]
 ----
 
 message Action {
@@ -62,41 +110,17 @@ enum ActionType {
 
 ----
 
-So let's pretend we are writing a bot that spins around clockwise and when it detects an enemy it fires the cannon:
+Actions are supposed to change the state of the bot on the server side.
 
-[kotlin]
------
-val so: StreamObserver<FrameUpdate> = object : StreamObserver<FrameUpdate> {
-        override fun onNext(value: FrameUpdate?) {
-            onFrame(value!!)
-        }
+==== Controlling the bot
 
-        override fun onError(t: Throwable?) {
-        }
+* You control the bearing by modifying the `ROTATE` action. You can set to 1 (clockwise), -1 (counter clockwise), 0 (stop). The rotation speed is dictated by the server
+* You control thrust by sending `THROTTLE` events: 1 towards bearing, -1 against, 0 stop
+* You fire the cannon by sending `FIRE`, value can only be 1. The server then handles the bullet trajectory and hit. Each bot can only have one bullet flying at a time. It will ignore any
+`FIRE` events if the bot has any bullets still traversing the world.
 
-        override fun onCompleted() {
-        }
 
-    }
-
-fun onFrame(frame: FrameUpdate){
-        lastFrame = frame
-
-        if(frame.eventType == EventType.ENEMY_DETECTED) {
-            client.onNext(Action.newBuilder()
-                                              .setActionType(ActionType.FIRE)
-                                              .setValue(1.0)
-                                              .setTimestamp(System.currentTimeMillis())
-                                              .build())
-        }
-
-    }
------
-
-The server queues up the actions and during it's main loop (runs about 30 times per second) it reacts by updating the state of each one
-of the robots. If another event is generated by the change in the world it writes the event back.
-
-=== Status
+== Status
 
 There's 3 main projects
 

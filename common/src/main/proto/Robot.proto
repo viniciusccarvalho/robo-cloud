@@ -7,10 +7,6 @@ service GameService {
     rpc connect(stream Action) returns (stream FrameUpdate);
 }
 
-message ConnectRequest{
-    string name = 1;
-}
-
 message Robot {
     string id = 1;
     string name = 2;
