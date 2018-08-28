@@ -1,11 +1,16 @@
 package io.igx.cloud.robo.simulation
 
+import io.igx.cloud.robo.Projectile
+import io.igx.cloud.robo.Robot
 import org.apache.commons.math3.geometry.euclidean.twod.Vector2D
 
 
 data class Box(val width: Int, val height: Int)
 data class WorldConfig(val screen: Box = Box(1024, 768), val botBox : Box = Box(64, 64))
-
+data class ArenaView(val id: String, val state: ArenaState, val timestamp: Long, val robots: List<Robot>, val projectiles: List<Projectile>)
+enum class ArenaState {
+    STARTED, WAITING_FOR_PLAYERS, SIMULATION_RUNNING, OVER, STOPPED;
+}
 /**
  * The Radar is a projection triangle from the center of the robot towards the end of the screen. It has a ten degree angle between the projection lines, and it's used to find if another robot center is
  * contained within this projection. It's based on Ray Casting algorithms to find if a point is cointained inside a polygon
@@ -42,7 +47,9 @@ class Radar(var center: Vector2D, var bearing: Double, var range: Double = 1000.
 
 /**
  * Moves a point in space considering the distance and angle
+ *
+ * Using screen coordinate space, therefore Y axis should decrease towards a 90 degree angle
  */
-fun Vector2D.moveTo(angle: Double, distance: Double)  = Vector2D(this.x + (Math.cos(angle) * distance), this.y + (Math.sin(angle)*distance) )
+fun Vector2D.moveTo(angle: Double, distance: Double)  = Vector2D(this.x + (Math.cos(angle) * distance), this.y - (Math.sin(angle)*distance) )
 
 fun normalizeAngle(angle: Double) : Double = angle + Math.ceil( -angle / 360 ) * 360

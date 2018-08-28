@@ -4,6 +4,8 @@ import io.grpc.stub.StreamObserver
 import io.igx.cloud.robo.*
 import mu.KotlinLogging
 import org.apache.commons.math3.geometry.euclidean.twod.Vector2D
+import java.awt.geom.AffineTransform
+import java.awt.geom.Rectangle2D
 import java.util.*
 
 /**
@@ -26,8 +28,10 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2
     val events = LinkedList<Any>()
     var projectile = ServerProjectile(bearing, center)
     val radar: Radar
+    val transform: AffineTransform
 
     init {
+        transform = AffineTransform()
         val range = Math.sqrt(Math.pow(worldConfig.screen.width.toDouble(), 2.0) + Math.pow(worldConfig.screen.height.toDouble(), 2.0)) * 1.2
         radar = Radar(center, bearing, range)
     }
@@ -73,6 +77,7 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2
     }
 
     override fun updateCoordinates(delta: Long) {
+
         bearing += rotationDirection * rotationSpeed * delta
         bearing = normalizeAngle(bearing)
         center = center.moveTo(Math.toRadians(bearing), delta * speed * acceleration)
@@ -89,6 +94,10 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2
                     .setTarget(target.getState())
                     .build())
         }
+    }
+
+    fun detectCollision(target: ServerRobot){
+
     }
 
 

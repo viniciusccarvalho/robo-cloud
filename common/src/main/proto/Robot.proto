@@ -21,6 +21,7 @@ message Robot {
 message Projectile {
     Coordinates coordinates = 1;
     double bearing = 2;
+    string robotId = 3;
 }
 
 message FrameUpdate{

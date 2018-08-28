@@ -43,7 +43,7 @@ class ArenaWatcher(override val kodein: Kodein) : KodeinAware {
 
 }
 
-class FrameUpdater() {
+class FrameUpdater {
 
     val FPS = 25
     val ticks = 1000 / FPS

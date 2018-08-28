@@ -2,9 +2,7 @@ package io.igx.cloud.robo.services
 
 import io.grpc.stub.StreamObserver
 import io.igx.cloud.robo.FrameUpdate
-import io.igx.cloud.robo.simulation.WorldConfig
-import io.igx.cloud.robo.simulation.ServerRobot
-import io.igx.cloud.robo.simulation.normalizeAngle
+import io.igx.cloud.robo.simulation.*
 import kotlinx.coroutines.experimental.Job
 import kotlinx.coroutines.experimental.channels.Channel
 import kotlinx.coroutines.experimental.delay
@@ -21,25 +19,28 @@ import kotlin.concurrent.withLock
  * The ArenaService is responsible to maintain the state of a match, update the frames,
  * detect collisions.
  */
-class ArenaService(val config: WorldConfig = WorldConfig()) {
+class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUID.randomUUID().toString()) {
 
-    var activeRobots = mutableListOf<ServerRobot>()
-    var destroyedRobots = mutableListOf<ServerRobot>()
-    var robotLock = ReentrantLock()
-    var watchers = mutableListOf<Channel<Long>>()
+    private var activeRobots = mutableListOf<ServerRobot>()
+    private var destroyedRobots = mutableListOf<ServerRobot>()
+    private var projectiles = mutableListOf<ServerProjectile>()
+    private var robotLock = ReentrantLock()
+    private var watchers = mutableListOf<Channel<ArenaView>>()
     val FPS = 30
     val ticks = 1000 / FPS
     var running = AtomicBoolean(false)
     var delta = 0L
-    var currentTime = System.currentTimeMillis()
-    val random = Random()
-    lateinit var job: Job
+    private var currentTime = System.currentTimeMillis()
+    private val random = Random()
+    private lateinit var job: Job
+    lateinit var state: ArenaState
     private val logger = KotlinLogging.logger {}
 
 
     fun start() {
         logger.info { "Starting ArenaManager" }
         running.set(true)
+        state = ArenaState.STARTED
         job = launch {
             updateWorld()
         }
@@ -48,8 +49,13 @@ class ArenaService(val config: WorldConfig = WorldConfig()) {
     fun register(outgoing: StreamObserver<FrameUpdate>): ServerRobot {
         logger.info { "Registering a new bot" }
         var robot: ServerRobot? = null
+
         robotLock.withLock {
+            if(activeRobots.size == 0){
+                state = ArenaState.SIMULATION_RUNNING
+            }
             val robotCenter = findRobotSpot()
+            //bots are placed faicing the center of the cartesian coordiantes
             val angle = normalizeAngle(Math.toDegrees(Math.atan2(robotCenter.y - 0.0, robotCenter.x - 0.0)))
             robot = ServerRobot(outgoing, center = robotCenter, bearing = angle)
             activeRobots.add(robot!!)
@@ -66,10 +72,12 @@ class ArenaService(val config: WorldConfig = WorldConfig()) {
     }
 
 
-    fun watch(channel: Channel<Long>) = watchers.add(channel)
+    fun watch(channel: Channel<ArenaView>) = watchers.add(channel)
 
     private suspend fun updateWorld() {
+
         currentTime = System.currentTimeMillis()
+
         while (isRunning()) {
             currentTime += ticks
             delta = currentTime - System.currentTimeMillis()
@@ -77,15 +85,31 @@ class ArenaService(val config: WorldConfig = WorldConfig()) {
                 delta = ticks.toLong()
             }
             robotLock.withLock {
-                for (robot in activeRobots) {
-                    robot.updateCoordinates(delta)
-                }
-                detectTargets()
-                activeRobots.forEach { it.broadcast() }
-            }
+                if(this.state == ArenaState.SIMULATION_RUNNING) {
 
-            for (channel in watchers) {
-                channel.send(System.currentTimeMillis())
+                    updateProjectiles(delta)
+
+                    for (robot in activeRobots) {
+                        robot.updateCoordinates(delta)
+                        for(target in activeRobots){
+                            if(target.id != robot.id){
+                                robot.scanTarget(target)
+                                robot.detectCollision(target)
+                            }
+                        }
+                    }
+                    activeRobots.forEach { it.broadcast() }
+                    for(projectile in projectiles) {
+
+                    }
+                }
+
+                if(watchers.isNotEmpty()) {
+                    val view = ArenaView(this.id, this.state, System.currentTimeMillis(), activeRobots.map { it.getState() }, projectiles.map { it.getState() })
+                    for (channel in watchers) {
+                        channel.send(view)
+                    }
+                }
             }
 
             if (delta > 0) {
@@ -97,19 +121,16 @@ class ArenaService(val config: WorldConfig = WorldConfig()) {
     /**
      * @TODO Implement Spatial Hashmap for regional collision check
      */
-    private fun collisionCheck() {
+    private fun updateProjectiles(delta: Long) {
+        val iterator = projectiles.iterator()
+        while(iterator.hasNext()){
+            val projectile = iterator.next()
+            projectile.updateCoordinates(delta)
 
-    }
-
-    private fun detectTargets() {
-        for(robot in activeRobots){
-            for(target in activeRobots){
-                if(target.id != robot.id){
-                    robot.scanTarget(target)
-                }
-            }
         }
     }
+
+
 
 
     fun stop() {
