@@ -17,7 +17,7 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2
 
     var rotationDirection = 0.0
     var acceleration = 0.0
-    val rotationSpeed = 30.0/1_000 //degrees per second
+    val rotationSpeed = 60.0/1_000 //degrees per second
     val speed = 20.0/1_000 // pixels per second
     var health = 3
     var projectiles = 1
@@ -68,7 +68,6 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2
             builder.timestamp = timestamp
             setEvent(builder, event)
             val frameUpdate = builder.build()
-            println(frameUpdate)
             outgoing.onNext(frameUpdate)
         }
     }
@@ -124,6 +123,7 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2
     }
 
     fun getState() : Robot {
+
         return Robot.newBuilder()
                 .setId(id)
                 .setSpeed(speed)

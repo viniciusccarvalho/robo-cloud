@@ -5,13 +5,11 @@
     <title>Robot Server Management Console</title>
 </head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.9.12/paper.js"></script>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.css"/>
 <body>
 <script>
 
-    paper.install(window)
 
     var bot ;
     var count = 0;
@@ -49,12 +47,7 @@
 
     $(document).ready(function() {
         var canvas = document.getElementById("arena");
-        paper.setup(canvas);
-        bot = new paper.Path.Rectangle(80, 80, 64, 64);
-        bot.style = {
-            fillColor: 'red',
-            strokeColor: 'black'
-        }
+
 
         $( "#connectButton" ).click(function() {
             connect();
@@ -66,7 +59,7 @@
 <div class="container">
     <div class="row">
         <div class="col-lg-10">
-            <canvas id="arena" width="800" height="600" style="background: black"></canvas>
+            <canvas id="arena" width="800" height="600" style="background: #1f1822"></canvas>
         </div>
         <div class="col-lg-2">
             <button type="button" class="btn" id="connectButton">Connect</button>

@@ -83,6 +83,9 @@ class MovingBot(val latch: CountDownLatch) {
             println("FIRE!!!! $frame")
         }
         if(connected.get()){
+
+
+
             val action = actions.poll()
             action?.let { outgoing.onNext(it) }
         }
@@ -92,3 +95,4 @@ class MovingBot(val latch: CountDownLatch) {
 
 
 }
+
