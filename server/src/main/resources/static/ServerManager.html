@@ -11,6 +11,7 @@
 <script>
     var canvas;
     var ctx;
+    var image = new Image();
 
     function connect() {
         console.log("Begin connect");
@@ -33,19 +34,35 @@
             }
 
             console.log("Disconnected with close code " + evt.code + " and " + explanation);
-            setTimeout(connect, 5000);
+
         };
 
         socket.onmessage = function(event) {
-
+            var view = JSON.parse(event.data);
+            render(view);
         };
     }
 
+    function render(arenaView) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for(i=0; i<arenaView.robots.length; i++){
+            var robot = arenaView.robots[i]
+            console.log(robot)
+            ctx.save();
+            ctx.beginPath();
+            //ctx.translate(Math.round(robot.box_.coordinates_.x), Math.round(robot.box_.coordinates_.y));
+            ctx.translate(32 * i + 32, 48)
+            ctx.rotate(robot.box_.bearing_);
+            ctx.drawImage(image, -32, -32, 64, 64);
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+
     $(document).ready(function() {
-        canvas = $("#arena");
+        image.src = "https://opengameart.org/sites/default/files/spaceship1_1.png"
+        canvas = document.getElementById("arena");
         ctx = canvas.getContext("2d");
-
-
         $( "#connectButton" ).click(function() {
             connect();
         });
@@ -56,7 +73,7 @@
 <div class="container">
     <div class="row">
         <div class="col-lg-10">
-            <canvas id="arena" width="800" height="600" style="background: #1f1822"></canvas>
+            <canvas id="arena" width="1024" height="768" style="background: #1f1822"></canvas>
         </div>
         <div class="col-lg-2">
             <button type="button" class="btn" id="connectButton">Connect</button>

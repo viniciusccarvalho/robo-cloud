@@ -2,6 +2,7 @@ package io.igx.cloud.robo.services
 
 import io.grpc.Server
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
+import kotlinx.coroutines.experimental.launch
 import mu.KotlinLogging
 import java.net.InetSocketAddress
 
@@ -22,12 +23,14 @@ class GameServer(val gameService: GameService) {
     fun start() {
         logger.info { "Starting Game Server" }
         gameService.start()
-        server.start()
+        launch {
+            server.start().awaitTermination()
+        }
     }
 
     fun stop() {
         logger.info { "Stopping Game Server" }
-        server.shutdown()
+        server.shutdownNow().awaitTermination()
     }
 
 }

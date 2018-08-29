@@ -22,8 +22,10 @@ dependencies {
     compile 'org.slf4j:slf4j-simple:1.7.25'
     compile "io.ktor:ktor-server-netty:${ktorVersion}"
     compile "io.ktor:ktor-websockets:${ktorVersion}"
+    compile "io.ktor:ktor-gson:${ktorVersion}"
     compile "org.kodein.di:kodein-di-generic-jvm:5.2.0"
     compile group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
+    compile group: 'org.jbox2d', name: 'jbox2d-library', version: '2.2.1.1'
 
 }
 

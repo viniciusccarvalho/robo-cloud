@@ -1,7 +1,9 @@
 package io.igx.cloud.robo.services
 
 import io.grpc.stub.StreamObserver
-import io.igx.cloud.robo.*
+import io.igx.cloud.robo.proto.*
+import io.igx.cloud.robo.simulation.ArenaView
+import kotlinx.coroutines.experimental.channels.Channel
 
 /**
  * @author vinicius
@@ -21,6 +23,10 @@ class GameService(val arenas: Int = 1) : GameServiceGrpc.GameServiceImplBase() {
 
     fun stop() {
         arenaService.stop()
+    }
+
+    fun watch(channel: Channel<ArenaView>, id: Int) {
+        arenaService.watch(channel)
     }
 
 }

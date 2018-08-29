@@ -1,12 +1,12 @@
 package io.igx.cloud.robo.simulation
 
-import io.igx.cloud.robo.Projectile
-import io.igx.cloud.robo.Robot
+import io.igx.cloud.robo.proto.Projectile
+import io.igx.cloud.robo.proto.Robot
 import org.apache.commons.math3.geometry.euclidean.twod.Vector2D
 
 
-data class Box(val width: Int, val height: Int)
-data class WorldConfig(val screen: Box = Box(1024, 768), val botBox : Box = Box(64, 64))
+data class Dimension(val width: Int, val height: Int)
+data class WorldConfig(val screen: Dimension = Dimension(1024, 768), val botBox : Dimension = Dimension(64, 64))
 data class ArenaView(val id: String, val state: ArenaState, val timestamp: Long, val robots: List<Robot>, val projectiles: List<Projectile>)
 enum class ArenaState {
     STARTED, WAITING_FOR_PLAYERS, SIMULATION_RUNNING, OVER, STOPPED;
@@ -18,6 +18,9 @@ enum class ArenaState {
  * See https://wrf.ecse.rpi.edu//Research/Short_Notes/pnpoly.html for reference implementation
  */
 class Radar(var center: Vector2D, var bearing: Double, var range: Double = 1000.0) {
+
+
+
     var points : Array<Vector2D> = Array(3) { _ -> Vector2D(0.0, 0.0) }
 
     init {
@@ -27,8 +30,8 @@ class Radar(var center: Vector2D, var bearing: Double, var range: Double = 1000.
     fun update(center: Vector2D, bearing: Double){
         this.bearing = bearing
         points[0] = center
-        points[1] = center.moveTo(Math.toRadians(this.bearing+5), range)
-        points[2] = center.moveTo(Math.toRadians(this.bearing-5), range)
+        points[1] = center.moveTo((this.bearing+5), range)
+        points[2] = center.moveTo((this.bearing-5), range)
     }
 
     fun contains(other: Vector2D) : Boolean{

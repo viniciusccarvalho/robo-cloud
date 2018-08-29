@@ -1,17 +1,12 @@
 package io.igx.cloud.robo.services
 
 import io.grpc.stub.StreamObserver
-import io.igx.cloud.robo.Action
-import io.igx.cloud.robo.ActionType
-import io.igx.cloud.robo.EventType
-import io.igx.cloud.robo.FrameUpdate
-import kotlinx.coroutines.experimental.launch
+import io.igx.cloud.robo.proto.*
 import kotlinx.coroutines.experimental.runBlocking
 import org.junit.Test
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.system.measureNanoTime
 
 /**
  * @author vinicius
@@ -77,7 +72,7 @@ class MovingBot(val latch: CountDownLatch) {
 
     fun onFrame(frame: FrameUpdate){
         lastFrame = frame
-
+        println(frame)
         if(frame.eventType == EventType.ENEMY_DETECTED) {
             latch.countDown()
             println("FIRE!!!! $frame")

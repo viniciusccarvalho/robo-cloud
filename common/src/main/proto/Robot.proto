@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 option java_multiple_files = true;
-option java_package = "io.igx.cloud.robo";
+option java_package = "io.igx.cloud.robo.proto";
 
 service GameService {
     rpc connect(stream Action) returns (stream FrameUpdate);
@@ -10,18 +10,16 @@ service GameService {
 message Robot {
     string id = 1;
     string name = 2;
-    Coordinates coordinates = 3;
+    Box box = 3;
     double speed = 4;
-    double bearing = 5;
-    int32 health = 6;
-    int32 score = 7;
-    int32 projectiles = 8;
+    int32 health = 5;
+    int32 score = 6;
+    int32 projectiles = 7;
 }
 
 message Projectile {
-    Coordinates coordinates = 1;
-    double bearing = 2;
-    string robotId = 3;
+   string robotId = 1;
+   Box box = 2;
 }
 
 message FrameUpdate{
@@ -46,9 +44,16 @@ message Action {
     double value = 4;
 }
 
+message Box {
+    Coordinates coordinates = 1;
+    float bearing = 2;
+    int32 width = 3;
+    int32 height = 4;
+}
+
 message Coordinates {
-    double x = 1;
-    double y = 2;
+    float x = 1;
+    float y = 2;
 }
 
 message StartedEvent {

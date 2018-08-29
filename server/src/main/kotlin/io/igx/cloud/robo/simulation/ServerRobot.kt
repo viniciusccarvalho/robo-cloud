@@ -1,12 +1,13 @@
 package io.igx.cloud.robo.simulation
 
 import io.grpc.stub.StreamObserver
-import io.igx.cloud.robo.*
+import io.igx.cloud.robo.Movable
+import io.igx.cloud.robo.proto.*
 import mu.KotlinLogging
 import org.apache.commons.math3.geometry.euclidean.twod.Vector2D
-import java.awt.geom.AffineTransform
-import java.awt.geom.Rectangle2D
+import org.jbox2d.dynamics.Body
 import java.util.*
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * @author Vinicius Carvalho
@@ -15,80 +16,89 @@ import java.util.*
  * Internal state is queued upon receive of Action stream events, the ArenaService will request an update
  * to the internal state and any perceived event is then sent back to the clients
  */
-class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2D = Vector2D(0.0, 0.0), var bearing: Double = 0.0, val worldConfig: WorldConfig = WorldConfig()) : Movable {
+class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, val body: Body, val worldConfig: WorldConfig = WorldConfig()) : Movable {
 
-    var rotationDirection = 0.0
     var acceleration = 0.0
-    val rotationSpeed = 60.0/1_000 //degrees per second
-    val speed = 20.0/1_000 // pixels per second
+    val speed = 20.0 / 1_000 // pixels per second
     var health = 3
     var projectiles = 1
     var score = 0
     val id = UUID.randomUUID().toString()
     val events = LinkedList<Any>()
-    var projectile = ServerProjectile(bearing, center)
     val radar: Radar
-    val transform: AffineTransform
+    private val connected = AtomicBoolean(false)
 
     init {
-        transform = AffineTransform()
         val range = Math.sqrt(Math.pow(worldConfig.screen.width.toDouble(), 2.0) + Math.pow(worldConfig.screen.height.toDouble(), 2.0)) * 1.2
-        radar = Radar(center, bearing, range)
+        radar = Radar(Vector2D(body.position.x.toDouble(), body.position.y.toDouble()), body.angle.toDouble(), range)
     }
 
     private val logger = KotlinLogging.logger {}
 
-    fun subscribe(): StreamObserver<Action> =
-            object : StreamObserver<Action> {
+    fun subscribe(): StreamObserver<Action> {
+        connected.set(true)
+        return object : StreamObserver<Action> {
 
-                override fun onNext(value: Action?) {
-                    onActionUpdate(value!!)
-                }
+            override fun onNext(value: Action?) {
+                onActionUpdate(value!!)
+            }
 
-                override fun onError(t: Throwable?) {
-
-                }
-
-                override fun onCompleted() {
-
-                }
+            override fun onError(t: Throwable?) {
 
             }
+
+            override fun onCompleted() {
+                try {
+                    outgoing.onCompleted()
+                } catch (e: Exception) {
+
+                } finally {
+                    disconnect()
+                }
+            }
+
+        }
+    }
 
     fun broadcast() {
         val timestamp = System.currentTimeMillis()
         val robot = getState()
-        if(events.isEmpty()){
-            outgoing.onNext(FrameUpdate.newBuilder()
-                    .setTimestamp(timestamp)
-                    .setRobotState(robot)
-                    .setEventType(EventType.STATUS_UPDATED)
-                    .build())
-        }
-        while(events.isNotEmpty()){
-            val event = events.pop()
-            val builder = FrameUpdate.newBuilder()
-            builder.robotState = robot
-            builder.timestamp = timestamp
-            setEvent(builder, event)
-            val frameUpdate = builder.build()
-            outgoing.onNext(frameUpdate)
+        if (connected.get()) {
+            try {
+                outgoing.onNext(FrameUpdate.newBuilder()
+                        .setTimestamp(timestamp)
+                        .setRobotState(robot)
+                        .setEventType(EventType.STATUS_UPDATED)
+                        .build())
+                while (events.isNotEmpty()) {
+                    val event = events.pop()
+                    val builder = FrameUpdate.newBuilder()
+                    builder.robotState = robot
+                    builder.timestamp = timestamp
+                    setEvent(builder, event)
+                    val frameUpdate = builder.build()
+                    outgoing.onNext(frameUpdate)
+                }
+            } catch (e: Exception) {
+               disconnect()
+            }
         }
     }
 
     override fun updateCoordinates(delta: Long) {
-
-        bearing += rotationDirection * rotationSpeed * delta
-        bearing = normalizeAngle(bearing)
-        center = center.moveTo(Math.toRadians(bearing), delta * speed * acceleration)
-        radar.update(center, bearing)
-        if(isFiring()){
-            projectile.updateCoordinates(delta)
+        radar.update(Vector2D(body.position.x.toDouble(), body.position.y.toDouble()), body.angle.toDouble())
+        if (isFiring()) {
         }
     }
 
-    fun scanTarget(target: ServerRobot){
-        if(radar.contains(target.center)){
+    fun disconnect(){
+       connected.set(false)
+    }
+
+    fun isConnected() : Boolean = connected.get()
+
+    fun scanTarget(target: ServerRobot) {
+        if (radar.contains(Vector2D(body.position.x.toDouble(), body.position.y.toDouble()))) {
             events.add(EnemyDetectedEvent.newBuilder()
                     .setTimestamp(System.currentTimeMillis())
                     .setTarget(target.getState())
@@ -96,15 +106,11 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2
         }
     }
 
-    fun detectCollision(target: ServerRobot){
 
-    }
-
-
-    private fun setEvent(builder: FrameUpdate.Builder, event : Any) {
+    private fun setEvent(builder: FrameUpdate.Builder, event: Any) {
         val type = findEventType(event)
         builder.eventType = type
-        when(type) {
+        when (type) {
             EventType.ENEMY_DETECTED -> builder.enemyDetectedEvent = event as EnemyDetectedEvent
             EventType.HIT_ENEMY -> builder.hitEnemyEvent = event as HitEnemyEvent
             EventType.DESTROYED -> builder.destroyedEvent = event as DestroyedEvent
@@ -115,8 +121,8 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2
 
     }
 
-    private fun findEventType(type: Any) : EventType {
-        return when(type.javaClass){
+    private fun findEventType(type: Any): EventType {
+        return when (type.javaClass) {
 
             EnemyDetectedEvent::class.java -> EventType.ENEMY_DETECTED
             HitByEvent::class.java -> EventType.HIT_BY
@@ -131,16 +137,22 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2
         }
     }
 
-    fun getState() : Robot {
-
+    fun getState(): Robot {
         return Robot.newBuilder()
                 .setId(id)
                 .setSpeed(speed)
-                .setBearing(bearing)
                 .setHealth(health)
                 .setScore(score)
                 .setProjectiles(projectiles)
-                .setCoordinates(Coordinates.newBuilder().setX(center.x).setY(center.y).build())
+                .setBox(Box.newBuilder()
+                        .setBearing(this.body.angle)
+                        .setHeight(this.worldConfig.botBox.height)
+                        .setWidth(this.worldConfig.botBox.width)
+                        .setCoordinates(Coordinates.newBuilder()
+                                .setX(this.body.position.x)
+                                .setY(this.body.position.y)
+                                .build())
+                        .build())
                 .build()
     }
 
@@ -154,18 +166,18 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, var center: Vector2
 
             ActionType.LEAVE -> "leave"
 
-            ActionType.ROTATE -> this.rotationDirection = normalize(action.value)
+            ActionType.ROTATE -> this.body.angularVelocity = 0.5f
         }
     }
 
-    private fun normalize(value: Double) : Double = when {
+    private fun normalize(value: Double): Double = when {
         value < 0.0 -> Math.max(value, -1.0)
         value > 0.0 -> Math.min(value, 1.0)
         else -> 0.0
     }
 
-    private fun isFiring() : Boolean {
-        return  projectiles == 0
+    private fun isFiring(): Boolean {
+        return projectiles == 0
     }
 
 
