@@ -18,9 +18,10 @@ import org.kodein.di.generic.instance
  */
 class ArenaWatcher(override val kodein: Kodein) : KodeinAware {
 
-    val app: Application by instance()
-    val gameService: GameService by instance("gameService")
-    val gson = Gson()
+    private val app: Application by instance()
+    private val gameService: GameService by instance("gameService")
+    private val gson = Gson()
+
     init {
         app.routing {
             webSocket("/arenas") {
@@ -31,8 +32,6 @@ class ArenaWatcher(override val kodein: Kodein) : KodeinAware {
                         outgoing.send(Frame.Text(gson.toJson(view)))
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
-                    println("Will close the channel, connection gone bad? ${outgoing.isClosedForSend}")
                     channel.close()
                 }
             }

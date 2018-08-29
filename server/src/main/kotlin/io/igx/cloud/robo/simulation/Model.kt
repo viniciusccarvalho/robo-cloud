@@ -1,13 +1,14 @@
 package io.igx.cloud.robo.simulation
 
-import io.igx.cloud.robo.proto.Projectile
-import io.igx.cloud.robo.proto.Robot
 import org.apache.commons.math3.geometry.euclidean.twod.Vector2D
 
 
 data class Dimension(val width: Int, val height: Int)
 data class WorldConfig(val screen: Dimension = Dimension(1024, 768), val botBox : Dimension = Dimension(64, 64))
-data class ArenaView(val id: String, val state: ArenaState, val timestamp: Long, val robots: List<Robot>, val projectiles: List<Projectile>)
+data class Coordinates( val x: Int, val y: Int)
+data class Box(val bearing: Float, val coordinates: Coordinates)
+data class Robot(val id: String, val name: String, val box: Box)
+data class ArenaView(val id: String, val state: ArenaState, val timestamp: Long, val robots: List<Robot>)
 enum class ArenaState {
     STARTED, WAITING_FOR_PLAYERS, SIMULATION_RUNNING, OVER, STOPPED;
 }

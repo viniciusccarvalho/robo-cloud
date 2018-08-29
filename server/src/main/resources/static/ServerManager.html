@@ -5,13 +5,14 @@
     <title>Robot Server Management Console</title>
 </head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.js"></script>
-
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.css"/>
-<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous"><body>
 <script>
     var canvas;
     var ctx;
     var image = new Image();
+    var count = 0;
 
     function connect() {
         console.log("Begin connect");
@@ -39,6 +40,8 @@
 
         socket.onmessage = function(event) {
             var view = JSON.parse(event.data);
+            count++;
+            $('#counter').text(count);
             render(view);
         };
     }
@@ -47,12 +50,11 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         for(i=0; i<arenaView.robots.length; i++){
             var robot = arenaView.robots[i]
-            console.log(robot)
             ctx.save();
             ctx.beginPath();
-            //ctx.translate(Math.round(robot.box_.coordinates_.x), Math.round(robot.box_.coordinates_.y));
-            ctx.translate(32 * i + 32, 48)
-            ctx.rotate(robot.box_.bearing_);
+            ctx.translate(robot.box.coordinates.x, robot.box.coordinates.y);
+            //ctx.translate(32 * i + 32, 48)
+            ctx.rotate(robot.box.bearing);
             ctx.drawImage(image, -32, -32, 64, 64);
             ctx.fill();
             ctx.restore();
@@ -60,7 +62,7 @@
     }
 
     $(document).ready(function() {
-        image.src = "https://opengameart.org/sites/default/files/spaceship1_1.png"
+        image.src = "/static/images/ship.png"
         canvas = document.getElementById("arena");
         ctx = canvas.getContext("2d");
         $( "#connectButton" ).click(function() {
@@ -75,9 +77,14 @@
         <div class="col-lg-10">
             <canvas id="arena" width="1024" height="768" style="background: #1f1822"></canvas>
         </div>
+
+    </div>
+    <div class="row">
         <div class="col-lg-2">
-            <button type="button" class="btn" id="connectButton">Connect</button>
-            <p id="counter">0</p>
+            <button type="button" class="btn btn-primary" id="connectButton">Connect</button>
+        </div>
+        <div class="col-lg-2">
+            Frames received: <span id="counter">0</span>
         </div>
     </div>
 

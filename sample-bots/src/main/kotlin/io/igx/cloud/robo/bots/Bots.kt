@@ -63,7 +63,12 @@ class SpinnerBot(service: GameServiceGrpc.GameServiceStub) : BaseBot(service){
             send(Action.newBuilder()
                     .setTimestamp(System.currentTimeMillis())
                     .setActionType(ActionType.ROTATE)
-                    .setValue(1.0)
+                    .setValue(1.0f)
+                    .build())
+            send(Action.newBuilder()
+                    .setTimestamp(System.currentTimeMillis())
+                    .setActionType(ActionType.THROTTLE)
+                    .setValue(1.0f)
                     .build())
             initialized = true
         }

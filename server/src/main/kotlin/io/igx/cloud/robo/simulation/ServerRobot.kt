@@ -3,8 +3,11 @@ package io.igx.cloud.robo.simulation
 import io.grpc.stub.StreamObserver
 import io.igx.cloud.robo.Movable
 import io.igx.cloud.robo.proto.*
+import io.igx.cloud.robo.proto.Robot
 import mu.KotlinLogging
 import org.apache.commons.math3.geometry.euclidean.twod.Vector2D
+import org.jbox2d.common.MathUtils
+import org.jbox2d.common.Vec2
 import org.jbox2d.dynamics.Body
 import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
@@ -16,14 +19,14 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Internal state is queued upon receive of Action stream events, the ArenaService will request an update
  * to the internal state and any perceived event is then sent back to the clients
  */
-class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, val body: Body, val worldConfig: WorldConfig = WorldConfig()) : Movable {
+class ServerRobot(val id : String = UUID.randomUUID().toString(), val outgoing: StreamObserver<FrameUpdate>, val body: Body, val worldConfig: WorldConfig = WorldConfig()) : Movable {
 
-    var acceleration = 0.0
-    val speed = 20.0 / 1_000 // pixels per second
+    var direction = 0.0f
+    var rotation = 0.0f
+    val speed = 50.0f
     var health = 3
     var projectiles = 1
     var score = 0
-    val id = UUID.randomUUID().toString()
     val events = LinkedList<Any>()
     val radar: Radar
     private val connected = AtomicBoolean(false)
@@ -31,6 +34,7 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, val body: Body, val
     init {
         val range = Math.sqrt(Math.pow(worldConfig.screen.width.toDouble(), 2.0) + Math.pow(worldConfig.screen.height.toDouble(), 2.0)) * 1.2
         radar = Radar(Vector2D(body.position.x.toDouble(), body.position.y.toDouble()), body.angle.toDouble(), range)
+
     }
 
     private val logger = KotlinLogging.logger {}
@@ -86,6 +90,7 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, val body: Body, val
     }
 
     override fun updateCoordinates(delta: Long) {
+
         radar.update(Vector2D(body.position.x.toDouble(), body.position.y.toDouble()), body.angle.toDouble())
         if (isFiring()) {
         }
@@ -144,11 +149,11 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, val body: Body, val
                 .setHealth(health)
                 .setScore(score)
                 .setProjectiles(projectiles)
-                .setBox(Box.newBuilder()
+                .setBox(io.igx.cloud.robo.proto.Box.newBuilder()
                         .setBearing(this.body.angle)
                         .setHeight(this.worldConfig.botBox.height)
                         .setWidth(this.worldConfig.botBox.width)
-                        .setCoordinates(Coordinates.newBuilder()
+                        .setCoordinates(io.igx.cloud.robo.proto.Coordinates.newBuilder()
                                 .setX(this.body.position.x)
                                 .setY(this.body.position.y)
                                 .build())
@@ -158,7 +163,13 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, val body: Body, val
 
     private fun onActionUpdate(action: Action) {
         when (action.actionType) {
-            ActionType.THROTTLE -> this.acceleration = normalize(action.value)
+            ActionType.THROTTLE -> {
+                this.direction = normalize(action.value)
+                val x = 1.0f * MathUtils.cos(body.angle) * direction * speed
+                val y = 1.0f * MathUtils.sin(body.angle) * direction * speed
+                this.body.linearVelocity = Vec2( x, y )
+
+            }
 
             ActionType.FIRE -> "fire"
 
@@ -166,14 +177,17 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, val body: Body, val
 
             ActionType.LEAVE -> "leave"
 
-            ActionType.ROTATE -> this.body.angularVelocity = 0.5f
+            ActionType.ROTATE -> {
+                this.rotation = normalize(action.value)
+                this.body.angularVelocity = this.rotation
+            }
         }
     }
 
-    private fun normalize(value: Double): Double = when {
-        value < 0.0 -> Math.max(value, -1.0)
-        value > 0.0 -> Math.min(value, 1.0)
-        else -> 0.0
+    private fun normalize(value: Float): Float = when {
+        value < 0.0 -> Math.max(value, -1.0f)
+        value > 0.0 -> Math.min(value, 1.0f)
+        else -> 0.0f
     }
 
     private fun isFiring(): Boolean {
@@ -182,7 +196,3 @@ class ServerRobot(val outgoing: StreamObserver<FrameUpdate>, val body: Body, val
 
 
 }
-
-
-
-

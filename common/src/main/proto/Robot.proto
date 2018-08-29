@@ -11,7 +11,7 @@ message Robot {
     string id = 1;
     string name = 2;
     Box box = 3;
-    double speed = 4;
+    float speed = 4;
     int32 health = 5;
     int32 score = 6;
     int32 projectiles = 7;
@@ -41,7 +41,7 @@ message Action {
     int64 timestamp = 1;
     string id = 2;
     ActionType actionType = 3;
-    double value = 4;
+    float value = 4;
 }
 
 message Box {
