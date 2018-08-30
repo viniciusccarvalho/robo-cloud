@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Internal state is queued upon receive of Action stream events, the ArenaService will request an update
  * to the internal state and any perceived event is then sent back to the clients
  */
-class ServerRobot(val id : String = UUID.randomUUID().toString(), val outgoing: StreamObserver<FrameUpdate>, val body: Body, val worldConfig: WorldConfig = WorldConfig()) : Movable {
+class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: StreamObserver<FrameUpdate>, val body: Body, val worldConfig: WorldConfig = WorldConfig()) : Movable {
 
     var direction = 0.0f
     var rotation = 0.0f
@@ -32,8 +32,8 @@ class ServerRobot(val id : String = UUID.randomUUID().toString(), val outgoing: 
     private val connected = AtomicBoolean(false)
 
     init {
-        val range = Math.sqrt(Math.pow(worldConfig.screen.width.toDouble(), 2.0) + Math.pow(worldConfig.screen.height.toDouble(), 2.0)) * 1.2
-        radar = Radar(Vector2D(body.position.x.toDouble(), body.position.y.toDouble()), body.angle.toDouble(), range)
+        val range = MathUtils.sqrt((worldConfig.screen.width * worldConfig.screen.width.toFloat()) + (worldConfig.screen.height * worldConfig.screen.height)) * 1.2f
+        radar = Radar(Vec2(body.position.x, body.position.y), body.angle, range)
 
     }
 
@@ -84,26 +84,26 @@ class ServerRobot(val id : String = UUID.randomUUID().toString(), val outgoing: 
                     outgoing.onNext(frameUpdate)
                 }
             } catch (e: Exception) {
-               disconnect()
+                disconnect()
             }
         }
     }
 
     override fun updateCoordinates(delta: Long) {
 
-        radar.update(Vector2D(body.position.x.toDouble(), body.position.y.toDouble()), body.angle.toDouble())
+        radar.update(Vec2(body.position.x, body.position.y), body.angle)
         if (isFiring()) {
         }
     }
 
-    fun disconnect(){
-       connected.set(false)
+    fun disconnect() {
+        connected.set(false)
     }
 
-    fun isConnected() : Boolean = connected.get()
+    fun isConnected(): Boolean = connected.get()
 
     fun scanTarget(target: ServerRobot) {
-        if (radar.contains(Vector2D(body.position.x.toDouble(), body.position.y.toDouble()))) {
+        if (radar.contains(Vec2(body.position.x, body.position.y))) {
             events.add(EnemyDetectedEvent.newBuilder()
                     .setTimestamp(System.currentTimeMillis())
                     .setTarget(target.getState())
@@ -167,7 +167,7 @@ class ServerRobot(val id : String = UUID.randomUUID().toString(), val outgoing: 
                 this.direction = normalize(action.value)
                 val x = 1.0f * MathUtils.cos(body.angle) * direction * speed
                 val y = 1.0f * MathUtils.sin(body.angle) * direction * speed
-                this.body.linearVelocity = Vec2( x, y )
+                this.body.linearVelocity = Vec2(x, y)
 
             }
 

@@ -1,6 +1,7 @@
 package io.igx.cloud.robo.simulation
 
-import org.apache.commons.math3.geometry.euclidean.twod.Vector2D
+import org.jbox2d.common.MathUtils
+import org.jbox2d.common.Vec2
 
 
 data class Dimension(val width: Int, val height: Int)
@@ -18,24 +19,24 @@ enum class ArenaState {
  *
  * See https://wrf.ecse.rpi.edu//Research/Short_Notes/pnpoly.html for reference implementation
  */
-class Radar(var center: Vector2D, var bearing: Double, var range: Double = 1000.0) {
+class Radar(var center: Vec2, var bearing: Float, var range: Float = 1000.0f) {
 
 
 
-    var points : Array<Vector2D> = Array(3) { _ -> Vector2D(0.0, 0.0) }
+    var points : Array<Vec2> = Array(3) { _ -> Vec2(0.0f, 0.0f) }
 
     init {
         update(center, bearing)
     }
 
-    fun update(center: Vector2D, bearing: Double){
+    fun update(center: Vec2, bearing: Float){
         this.bearing = bearing
         points[0] = center
         points[1] = center.moveTo((this.bearing+5), range)
         points[2] = center.moveTo((this.bearing-5), range)
     }
 
-    fun contains(other: Vector2D) : Boolean{
+    fun contains(other: Vec2) : Boolean{
         var contains = false
         var i = 0
         var j = points.size - 1
@@ -54,6 +55,6 @@ class Radar(var center: Vector2D, var bearing: Double, var range: Double = 1000.
  *
  * Using screen coordinate space, therefore Y axis should decrease towards a 90 degree angle
  */
-fun Vector2D.moveTo(angle: Double, distance: Double)  = Vector2D(this.x + (Math.cos(angle) * distance), this.y - (Math.sin(angle)*distance) )
+fun Vec2.moveTo(angle: Float, distance: Float)  = Vec2(this.x + (MathUtils.cos(angle) * distance), this.y - (MathUtils.sin(angle)*distance) )
 
 fun normalizeAngle(angle: Double) : Double = angle + Math.ceil( -angle / 360 ) * 360

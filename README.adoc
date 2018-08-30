@@ -145,7 +145,7 @@ The desired state is described above, but there's a ton of moving things to take
 | Proto API | Unstable
 | Main Game Loop | Working
 | Enemy detection | Working
-| Collision Detection | Not implemented
+| Collision Detection | Implemented via jbox2d
 | Match detection and state | Not implemented
 | Websockets canvas viewer | Basic implementation
 | Configurable GRPC server with lifecycle | Not implemented

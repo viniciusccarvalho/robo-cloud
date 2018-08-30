@@ -127,7 +127,10 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
             robotLock.withLock {
                 if(this.state == ArenaState.SIMULATION_RUNNING) {
                     filterDisconnected()
-                    liveBots.forEach { it.updateCoordinates(delta) }
+                    liveBots.forEach {
+                        it.updateCoordinates(delta)
+                    }
+
                     world.step(1.0f/30, 8, 3)
                     liveBots.forEach { it.broadcast() }
                 }
