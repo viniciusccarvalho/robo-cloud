@@ -9,10 +9,16 @@
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous"><body>
 <script>
+    //Parallax code taken from
     var canvas;
     var ctx;
     var image = new Image();
     var count = 0;
+    var DEFAULT_WIDTH = 1024;
+    var DEFAULT_HEIGHT = 768;
+    var delta = 1/30;
+    var lastFrame = 0;
+    var parallax = new Parallax()
 
     function connect() {
         console.log("Begin connect");
@@ -48,6 +54,15 @@
 
     function render(arenaView) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (parallax) {
+            var now = Date.now();
+            if(lastFrame =! 0){
+                delta = now - lastFrame
+            }
+            parallax.update(delta / 1000);
+            parallax.render();
+            lastFrame = now;
+        }
         for(i=0; i<arenaView.robots.length; i++){
             var robot = arenaView.robots[i]
             ctx.save();
@@ -69,6 +84,89 @@
             connect();
         });
     });
+
+    function getRandomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function Parallax() {
+        this.FPS = 60;
+        this.started = false;
+        this.bgLayers = new Array();
+        this.numBgLayers = 12;
+        this.baseStarNum = 6;
+    }
+
+    Parallax.prototype.update = function (delta) {
+        if (!this.started) {
+            this.started = true;
+            this.initBackground();
+            console.log("started");
+        } else {
+            for (var i = 0; i < this.bgLayers.length; i++) {
+                for (var j = 0; j < this.bgLayers[i].length; j++) {
+                    var star = this.bgLayers[i][j];
+
+                    if (this.inBounds(star.x, star.y)) {
+                        // move star
+                        star.x += star.speed.x;
+                        star.y += star.speed.y;
+                    } else {
+                        // reset star
+                        star.x = getRandomInt(0, canvas.width);
+                        star.y = 1;
+                    }
+                }
+            }
+        }
+    };
+
+    Parallax.prototype.render = function () {
+        ctx.fillStyle = "#000000";
+        ctx.strokeStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save(); // save context
+        ctx.fillStyle = ctx.strokeStyle = "#FFFFFF";
+
+        for (var i = 0; i < this.bgLayers.length; i++) {
+            for (var j = 0; j < this.bgLayers[i].length; j++) {
+                var star = this.bgLayers[i][j];
+
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.radius, 0, 2 * Math.PI, false);
+                ctx.fill();
+                ctx.stroke();
+            }
+        }
+        ctx.restore(); // restore context
+    };
+
+    Parallax.prototype.initBackground = function () {
+        for (var i = this.numBgLayers; i > 0; i--) {
+            var stars = new Array();
+
+            for (var j = 0; j < this.baseStarNum * i; j++) {
+                var star = {
+                    x: getRandomInt(0, canvas.width),
+                    y: getRandomInt(0, canvas.height),
+                    radius: 1 / i,
+                    speed: {
+                        x: 0,
+                        y: 2 / i
+                    }
+                };
+                stars.push(star);
+            }
+            this.bgLayers.push(stars);
+        }
+    };
+
+    Parallax.prototype.inBounds = function (x, y) {
+        return ((x > 0 && x < canvas.width) && (y > 0 && y < canvas.height));
+    };
+
 
 
 </script>
