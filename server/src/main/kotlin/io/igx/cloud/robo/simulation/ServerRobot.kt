@@ -5,7 +5,6 @@ import io.igx.cloud.robo.Movable
 import io.igx.cloud.robo.proto.*
 import io.igx.cloud.robo.proto.Robot
 import mu.KotlinLogging
-import org.apache.commons.math3.geometry.euclidean.twod.Vector2D
 import org.jbox2d.common.MathUtils
 import org.jbox2d.common.Vec2
 import org.jbox2d.dynamics.Body
@@ -19,8 +18,9 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Internal state is queued upon receive of Action stream events, the ArenaService will request an update
  * to the internal state and any perceived event is then sent back to the clients
  */
-class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: StreamObserver<FrameUpdate>, val body: Body, val worldConfig: WorldConfig = WorldConfig()) : Movable {
+class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: StreamObserver<FrameUpdate>, val body: Body, val worldConfig: WorldConfig = WorldConfig(), val callback: ArenaCallback) : Movable {
 
+    val MAX_PROJECTILES = 1
     var direction = 0.0f
     var rotation = 0.0f
     val speed = 50.0f
@@ -92,8 +92,7 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
     override fun updateCoordinates(delta: Long) {
 
         radar.update(Vec2(body.position.x, body.position.y), body.angle)
-        if (isFiring()) {
-        }
+
     }
 
     fun disconnect() {
@@ -161,6 +160,18 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
                 .build()
     }
 
+    fun reload(){
+        projectiles = Math.min(++projectiles, MAX_PROJECTILES)
+    }
+
+    fun hitBy(source: ServerRobot){
+        this.health = Math.max(0, --health)
+        events.add(HitByEvent.newBuilder()
+                .setTimestamp(System.currentTimeMillis())
+                .setSource(source.getState())
+                .build())
+    }
+
     private fun onActionUpdate(action: Action) {
         when (action.actionType) {
             ActionType.THROTTLE -> {
@@ -171,7 +182,12 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
 
             }
 
-            ActionType.FIRE -> "fire"
+            ActionType.FIRE -> {
+                if(projectiles > 0){
+                    projectiles--
+                    callback.onFireEvent(this)
+                }
+            }
 
             ActionType.JOIN -> "join"
 

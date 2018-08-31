@@ -9,10 +9,11 @@
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous"><body>
 <script>
-    //Parallax code taken from
+    //Parallax code taken from https://github.com/Ikradex/JS-Star-Parallax
     var canvas;
     var ctx;
-    var image = new Image();
+    var botImg = new Image();
+    var bulletImg = new Image();
     var count = 0;
     var DEFAULT_WIDTH = 1024;
     var DEFAULT_HEIGHT = 768;
@@ -63,6 +64,17 @@
             parallax.render();
             lastFrame = now;
         }
+        for(i=0; i<arenaView.projectiles.length; i++) {
+            var projectile = arenaView.projectiles[i];
+            console.log(projectile)
+            ctx.save();
+            ctx.beginPath();
+            ctx.translate(projectile.box.coordinates.x, projectile.box.coordinates.y);
+            ctx.rotate(projectile.box.bearing);
+            ctx.drawImage(bulletImg, -9 , -5 , 18, 11);
+            ctx.fill();
+            ctx.restore();
+        }
         for(i=0; i<arenaView.robots.length; i++){
             var robot = arenaView.robots[i]
             ctx.save();
@@ -70,14 +82,15 @@
             ctx.translate(robot.box.coordinates.x, robot.box.coordinates.y);
             //ctx.translate(32 * i + 32, 48)
             ctx.rotate(robot.box.bearing);
-            ctx.drawImage(image, -32, -32, 64, 64);
+            ctx.drawImage(botImg, -32, -32, 64, 64);
             ctx.fill();
             ctx.restore();
         }
     }
 
     $(document).ready(function() {
-        image.src = "/static/images/ship.png"
+        botImg.src = "/static/images/ship.png";
+        bulletImg.src = "/static/images/bullet.png";
         canvas = document.getElementById("arena");
         ctx = canvas.getContext("2d");
         $( "#connectButton" ).click(function() {

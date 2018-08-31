@@ -57,7 +57,6 @@ class SpinnerBot(service: GameServiceGrpc.GameServiceStub) : BaseBot(service){
     }
 
     override fun onFrame(frameUpdate: FrameUpdate) {
-        println(frameUpdate)
         if(!initialized){
             println("Initializing Spinner Bot")
             send(Action.newBuilder()
@@ -65,13 +64,21 @@ class SpinnerBot(service: GameServiceGrpc.GameServiceStub) : BaseBot(service){
                     .setActionType(ActionType.ROTATE)
                     .setValue(1.0f)
                     .build())
-            send(Action.newBuilder()
-                    .setTimestamp(System.currentTimeMillis())
-                    .setActionType(ActionType.THROTTLE)
-                    .setValue(1.0f)
-                    .build())
+//            send(Action.newBuilder()
+//                    .setTimestamp(System.currentTimeMillis())
+//                    .setActionType(ActionType.THROTTLE)
+//                    .setValue(1.0f)
+//                    .build())
             initialized = true
         }
+        if(frameUpdate.eventType == EventType.ENEMY_DETECTED){
+            send(Action.newBuilder()
+                    .setTimestamp(System.currentTimeMillis())
+                    .setActionType(ActionType.FIRE)
+                    .setValue(1.0f)
+                    .build())
+        }
+        lastFrameUpdate = frameUpdate
     }
 
     fun disconnect(){

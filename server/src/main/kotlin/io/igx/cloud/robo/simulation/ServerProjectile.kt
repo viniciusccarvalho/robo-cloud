@@ -1,25 +1,34 @@
 package io.igx.cloud.robo.simulation
 
-import io.igx.cloud.robo.Movable
+import io.igx.cloud.robo.proto.Box
 import io.igx.cloud.robo.proto.Projectile
-import org.jbox2d.common.Vec2
+import io.igx.cloud.robo.proto.Coordinates
+import org.jbox2d.dynamics.Body
 
 /**
  * @author vinicius
  * Represents a "live" projectile, trajectory is updated on every frame
  */
-class ServerProjectile(var bearing: Float = 0.0f, var center: Vec2 = Vec2(0.0f, 0.0f)) : Movable {
+class ServerProjectile(val body: Body, val id: String) {
 
-    val speed = 30.0f/1_000 // pixels per second
 
-    override fun updateCoordinates(delta: Long) {
-        center = center.moveTo(bearing, speed*delta)
-    }
 
     fun getState() : Projectile {
         return Projectile.newBuilder()
-
+                .setRobotId(getRobotId())
+                .setBox(Box.newBuilder()
+                        .setBearing(body.angle)
+                        .setCoordinates(Coordinates.newBuilder()
+                                .setX(body.position.x)
+                                .setY(body.position.y)
+                                .build())
+                        .build())
                 .build()
+    }
+
+    fun getRobotId() : String {
+        val data = body.userData as BodyData
+        return data.context["robotId"].orEmpty()
     }
 
 }

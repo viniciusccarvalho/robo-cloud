@@ -18,8 +18,9 @@ message Robot {
 }
 
 message Projectile {
-   string robotId = 1;
-   Box box = 2;
+   string id = 1;
+   string robotId = 2;
+   Box box = 3;
 }
 
 message FrameUpdate{

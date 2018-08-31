@@ -20,13 +20,15 @@ class SpinnerTest {
             val channel = ManagedChannelBuilder.forAddress("localhost", 5000).usePlaintext().build()
             val service = GameServiceGrpc.newStub(channel)
             var bots = mutableListOf<SpinnerBot>()
-            for (i in 1..10){
+            for (i in 1..4){
                 val spinnerBot = SpinnerBot(service)
                 spinnerBot.connect()
                 bots.add(spinnerBot)
             }
             delay(30000)
-            bots.forEach { it.disconnect() }
+            bots.forEach {
+                println(it.lastFrameUpdate)
+                it.disconnect() }
             channel.shutdown()
         }
 

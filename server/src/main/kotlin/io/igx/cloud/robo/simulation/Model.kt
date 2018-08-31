@@ -5,13 +5,18 @@ import org.jbox2d.common.Vec2
 
 
 data class Dimension(val width: Int, val height: Int)
-data class WorldConfig(val screen: Dimension = Dimension(1024, 768), val botBox : Dimension = Dimension(64, 64))
+data class WorldConfig(val screen: Dimension = Dimension(1024, 768), val botBox : Dimension = Dimension(64, 64), val bulletBox : Dimension = Dimension(18, 11))
 data class Coordinates( val x: Int, val y: Int)
 data class Box(val bearing: Float, val coordinates: Coordinates)
 data class Robot(val id: String, val name: String, val box: Box)
-data class ArenaView(val id: String, val state: ArenaState, val timestamp: Long, val robots: List<Robot>)
+data class Projectile(val id: String, val robotId: String, val box: Box)
+data class ArenaView(val id: String, val state: ArenaState, val timestamp: Long, val robots: List<Robot>, val projectiles: List<Projectile>)
+data class BodyData(val type: FixtureType, val context: Map<String, String>)
 enum class ArenaState {
     STARTED, WAITING_FOR_PLAYERS, SIMULATION_RUNNING, OVER, STOPPED;
+}
+enum class FixtureType {
+    WALL, BULLET, ROBOT
 }
 /**
  * The Radar is a projection triangle from the center of the robot towards the end of the screen. It has a ten degree angle between the projection lines, and it's used to find if another robot center is
@@ -20,8 +25,6 @@ enum class ArenaState {
  * See https://wrf.ecse.rpi.edu//Research/Short_Notes/pnpoly.html for reference implementation
  */
 class Radar(var center: Vec2, var bearing: Float, var range: Float = 1000.0f) {
-
-
 
     var points : Array<Vec2> = Array(3) { _ -> Vec2(0.0f, 0.0f) }
 
@@ -48,6 +51,10 @@ class Radar(var center: Vec2, var bearing: Float, var range: Float = 1000.0f) {
         }
         return contains
     }
+}
+
+interface ArenaCallback {
+    fun onFireEvent(robot: ServerRobot)
 }
 
 /**
