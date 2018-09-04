@@ -18,6 +18,7 @@ import org.jbox2d.common.Vec2
 import org.jbox2d.dynamics.*
 import org.jbox2d.dynamics.contacts.Contact
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -29,9 +30,9 @@ import kotlin.concurrent.withLock
  */
 class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUID.randomUUID().toString()) {
 
-    private var liveBots = mutableMapOf<String, ServerRobot>()
+    private var liveBots = ConcurrentHashMap<String, ServerRobot>()
     private var destroyedBots = mutableListOf<ServerRobot>()
-    private var projectiles = mutableMapOf<String, ServerProjectile>()
+    private var projectiles = ConcurrentHashMap<String, ServerProjectile>()
     private var robotLock = ReentrantLock()
     private val worldLock = ReentrantLock()
     private var watchers = mutableListOf<Channel<ArenaView>>()
@@ -104,7 +105,6 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
     }
 
     fun register(outgoing: StreamObserver<FrameUpdate>): ServerRobot {
-        logger.info { "Registering a new bot" }
         var robot: ServerRobot? = null
 
         robotLock.withLock {
@@ -115,7 +115,6 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
             val body = createRobotBody(id)
             robot = ServerRobot(id, outgoing, body = body, callback = callback)
             liveBots[id] = robot!!
-            logger.info { "Created robot with initial configuration: ${robot!!.getState()}" }
         }
         return robot!!
     }
@@ -162,7 +161,7 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
             }
             robotLock.withLock {
                 if(this.state == ArenaState.SIMULATION_RUNNING) {
-                    filterDisconnected()
+                    filterBots()
 
                     liveBots.values.forEach { robot ->
                         robot.updateCoordinates(delta)
@@ -175,6 +174,7 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
                     worldLock.withLock {
                         world.step(1.0f/30, 8, 3)
                     }
+                    destroyBullets()
                     liveBots.values.forEach { it.broadcast() }
 
                     if(watchers.isNotEmpty()) {
@@ -245,13 +245,24 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
         }
     }
 
+    private fun destroyBullets() {
+        val iterator = projectiles.values.iterator()
+        while(iterator.hasNext()){
+            val bullet = iterator.next()
+            val pos = bullet.body.position
+            if(pos.x <=0 || pos.x >= config.screen.width || pos.y <= 0 || pos.y >= config.screen.height){
+                destroyBullet(bullet.body);
+            }
+        }
+    }
+
     private fun destroyBullet(bullet: Body){
         val data = bullet.userData as BodyData
-        liveBots[data.context["robotId"]]?.reload()
-        robotLock.withLock {
+        synchronized(projectiles) {
             projectiles.remove(data.context["id"])
         }
         worldLock.withLock { world.destroyBody(bullet) }
+        liveBots[data.context["robotId"]]?.reload()
 
     }
 
@@ -271,6 +282,7 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
     private fun createProjectile(robot: ServerRobot) {
         val id = UUID.randomUUID().toString()
         val bodyDef = BodyDef()
+        lateinit var bullet: Body
         bodyDef.angle = robot.body.angle
         bodyDef.type = BodyType.KINEMATIC
         bodyDef.bullet = true
@@ -280,9 +292,11 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
         val x = 1000 * MathUtils.cos(bodyDef.angle) * bulletSpeed
         bodyDef.linearVelocity = Vec2(x, y)
         worldLock.withLock {
-            val bullet = world.createBody(bodyDef)
+             bullet = world.createBody(bodyDef)
             bullet.createFixture(bulletFixture)
-            projectiles[id] = ServerProjectile(bullet, id)
+        }
+        synchronized(projectiles){
+            projectiles[id] = ServerProjectile(bullet!!, id)
         }
 
 
@@ -291,12 +305,11 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
     /**
      * Removes any Robot that is on disconnect state from the list
      */
-    private fun filterDisconnected(){
+    private fun filterBots(){
         val iterator = liveBots.values.iterator()
         while (iterator.hasNext()){
             val bot = iterator.next()
             if(!bot.isConnected()){
-
                 worldLock.withLock { world.destroyBody(bot.body) }
                 iterator.remove()
             }

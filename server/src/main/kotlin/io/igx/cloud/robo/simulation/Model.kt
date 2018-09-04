@@ -2,6 +2,7 @@ package io.igx.cloud.robo.simulation
 
 import org.jbox2d.common.MathUtils
 import org.jbox2d.common.Vec2
+import java.util.*
 
 
 data class Dimension(val width: Int, val height: Int)
@@ -65,3 +66,15 @@ interface ArenaCallback {
 fun Vec2.moveTo(angle: Float, distance: Float)  = Vec2(this.x + (MathUtils.cos(angle) * distance), this.y - (MathUtils.sin(angle)*distance) )
 
 fun normalizeAngle(angle: Double) : Double = angle + Math.ceil( -angle / 360 ) * 360
+
+object RobotNameFactory {
+
+    private val names: List<String> = RobotNameFactory::class.java.classLoader.getResource("robots.txt").readText().split("\n")
+    private val random = Random()
+
+
+    fun getName() : String {
+        return names[random.nextInt(names.size)]
+    }
+
+}

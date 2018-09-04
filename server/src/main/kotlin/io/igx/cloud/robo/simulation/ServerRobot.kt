@@ -24,11 +24,12 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
     var direction = 0.0f
     var rotation = 0.0f
     val speed = 50.0f
-    var health = 3
+    var health = 100
     var projectiles = 1
     var score = 0
     val events = LinkedList<Any>()
     val radar: Radar
+    private val name = RobotNameFactory.getName()
     private val connected = AtomicBoolean(false)
 
     init {
@@ -66,9 +67,10 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
 
     fun broadcast() {
         val timestamp = System.currentTimeMillis()
-        val robot = getState()
+
         if (connected.get()) {
             try {
+                val robot = getState()
                 outgoing.onNext(FrameUpdate.newBuilder()
                         .setTimestamp(timestamp)
                         .setRobotState(robot)
@@ -147,6 +149,7 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
                 .setSpeed(speed)
                 .setHealth(health)
                 .setScore(score)
+                .setName(name)
                 .setProjectiles(projectiles)
                 .setBox(io.igx.cloud.robo.proto.Box.newBuilder()
                         .setBearing(this.body.angle)
@@ -165,7 +168,8 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
     }
 
     fun hitBy(source: ServerRobot){
-        this.health = Math.max(0, --health)
+
+        this.health = Math.max(0, health-10)
         events.add(HitByEvent.newBuilder()
                 .setTimestamp(System.currentTimeMillis())
                 .setSource(source.getState())

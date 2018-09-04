@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <title>Robot Server Management Console</title>
 </head>
+<link href="https://fonts.googleapis.com/css?family=Press+Start+2P" rel="stylesheet"/>
+<style>
+    canvas {
+        font-family: 'Press Start 2P', cursive;
+    }
+    body {
+        font-family: 'Press Start 2P', cursive;
+    }
+</style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
@@ -180,22 +189,108 @@
         return ((x > 0 && x < canvas.width) && (y > 0 && y < canvas.height));
     };
 
+    function PlayerScore(robots, ctx){
+        var self = this;
+        self.playerStatus = [];
+        self.ctx = ctx;
+        for(i=0; i<robots.length; i++){
+            self.playerStatus.push(new PlayerStatus(robots[i], i, ctx));
+        }
+
+        self.update = function(index, robot) {
+            self.playerStatus[index].update(robot);
+        }
+
+        self.render = function(delta) {
+            self.ctx.clearRect(0, 0, 320, 768)
+            for(i=0; i<self.playerStatus.length; i++){
+                self.playerStatus[i].render(delta);
+            }
+        }
+
+    }
+
+    function PlayerStatus(robot, index, ctx) {
+        var self = this;
+        self.robot = robot;
+        self.index = index;
+        self.ctx = ctx;
+        self.margin = 10;
+        self.height = 50;
+        self.fontHeight = 9;
+        self.canvasWidth = 320
+        self.maxHealthSize = 98
+        self.targetHealthSize = self.maxHealthSize
+
+        self.update = function(robot){
+
+        }
+
+        self.render = function(delta) {
+            self.drawText(delta);
+            self.drawEnergy(delta);
+        }
+
+        self.drawEnergy = function(delta) {
+            var currentHealthSize = (robot.health/100) * self.maxHealthSize
+            if((self.targetHealthSize - currentHealthSize) >= 0) {
+                self.targetHealthSize--;
+                console.log(self.targetHealthSize)
+            }
+            self.ctx.save();
+            self.ctx.strokeStyle = "#ffffff";
+            self.ctx.strokeRect(80, self.margin - 3  + (self.height * self.index) + 20, 100, 14);
+            self.ctx.fillStyle = "yellow";
+            self.ctx.fillRect(81, self.margin - 2  + (self.height * self.index) + 20, self.maxHealthSize, 12);
+
+            self.ctx.fillStyle = "red";
+            self.ctx.fillRect(81, self.margin - 2  + (self.height * self.index) + 20, self.targetHealthSize+1, 12);
+
+            self.ctx.restore();
+        }
+
+        self.drawText = function(delta){
+            var rightColumnOffset = self.canvasWidth - ( self.margin + 100);
+            self.ctx.imageSmoothingEnabled = false;
+            self.ctx.save();
+            self.ctx.fillStyle = "#ffffff";
+            self.ctx.font = '8px "Press Start 2P"'
+            self.ctx.fillText(self.robot.name, self.margin, self.margin + self.fontHeight + (self.height * self.index));
+            self.ctx.fillText("Health :", self.margin, self.margin + self.fontHeight + (self.height * self.index) + 20);
+            self.ctx.fillText("Score : 0000", rightColumnOffset, self.margin + self.fontHeight + (self.height * self.index));
+            self.ctx.fillText("Ammo  :", rightColumnOffset, self.margin + self.fontHeight + (self.height * self.index) + 20);
+            ctx.beginPath();
+            self.ctx.moveTo(0, (1+self.index) * (self.height));
+            ctx.strokeStyle = "#ffffff";
+            self.ctx.lineTo(self.canvasWidth, (1+self.index) * (self.height));
+            self.ctx.stroke();
+            self.ctx.fill();
+
+            self.ctx.restore();
+        }
+
+
+    }
+
 
 
 </script>
-<div class="container">
+<div class="container-fluid">
     <div class="row">
-        <div class="col-lg-10">
+        <div style="width: 1024px">
             <canvas id="arena" width="1024" height="768" style="background: #1f1822"></canvas>
+        </div>
+        <div style="width: 320px">
+            <canvas id="status" width="320" height="768" style="background: #1f1822;"></canvas>
         </div>
 
     </div>
     <div class="row">
         <div class="col-lg-2">
-            <button type="button" class="btn btn-primary" id="connectButton">Connect</button>
+            <button type="button" class="btn btn-primary" style="font-family: 'Press Start 2P' ; font-size: x-small" id="connectButton">Connect</button>
         </div>
-        <div class="col-lg-2">
-            Frames received: <span id="counter">0</span>
+        <div class="col-lg-2" style="font-family: 'Press Start 2P'; font-size: x-small">
+            Frames received: <span id="counter" style="font-family: 'Press Start 2P'">0</span>
         </div>
     </div>
 
