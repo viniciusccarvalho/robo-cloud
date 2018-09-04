@@ -11,8 +11,6 @@ import org.jbox2d.dynamics.Body
  */
 class ServerProjectile(val body: Body, val id: String) {
 
-
-
     fun getState() : Projectile {
         return Projectile.newBuilder()
                 .setRobotId(getRobotId())

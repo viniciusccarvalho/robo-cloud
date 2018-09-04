@@ -21,6 +21,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: StreamObserver<FrameUpdate>, val body: Body, val worldConfig: WorldConfig = WorldConfig(), val callback: ArenaCallback) : Movable {
 
     val MAX_PROJECTILES = 1
+    val HIT_SCORE = 25
+    val HIT_DAMAGE = 25
     var direction = 0.0f
     var rotation = 0.0f
     val speed = 50.0f
@@ -164,16 +166,31 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
     }
 
     fun reload(){
-        projectiles = Math.min(++projectiles, MAX_PROJECTILES)
+        synchronized(this) {
+            this.projectiles = Math.min(++this.projectiles, MAX_PROJECTILES)
+            println("Reloading bot $name current ammo : $projectiles")
+        }
     }
 
     fun hitBy(source: ServerRobot){
+        synchronized(this) {
+            this.health = Math.max(0, this.health - HIT_DAMAGE)
+            this.score -= 10
+            events.add(HitByEvent.newBuilder()
+                    .setTimestamp(System.currentTimeMillis())
+                    .setSource(source.getState())
+                    .build())
+        }
+    }
 
-        this.health = Math.max(0, health-10)
-        events.add(HitByEvent.newBuilder()
-                .setTimestamp(System.currentTimeMillis())
-                .setSource(source.getState())
-                .build())
+    fun hitEnemy(target: ServerRobot?) {
+        synchronized(this){
+            this.score += HIT_SCORE
+            events.add(HitEnemyEvent.newBuilder()
+                    .setTimestamp(System.currentTimeMillis())
+                    .setTarget(target?.getState())
+                    .build())
+        }
     }
 
     private fun onActionUpdate(action: Action) {
@@ -187,9 +204,11 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
             }
 
             ActionType.FIRE -> {
-                if(projectiles > 0){
-                    projectiles--
-                    callback.onFireEvent(this)
+                synchronized(this.projectiles){
+                    if(this.projectiles > 0){
+                        this.projectiles--
+                        callback.onFireEvent(this)
+                    }
                 }
             }
 
@@ -210,8 +229,10 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
         else -> 0.0f
     }
 
-    private fun isFiring(): Boolean {
-        return projectiles == 0
+    fun isAlive() : Boolean {
+        synchronized(this.health){
+            return this.health > 0
+        }
     }
 
 

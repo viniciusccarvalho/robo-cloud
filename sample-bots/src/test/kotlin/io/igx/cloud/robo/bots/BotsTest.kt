@@ -20,12 +20,18 @@ class SpinnerTest {
             val channel = ManagedChannelBuilder.forAddress("localhost", 5000).usePlaintext().build()
             val service = GameServiceGrpc.newStub(channel)
             var bots = mutableListOf<SpinnerBot>()
-            for (i in 1..4){
+            for (i in 1..8){
                 val spinnerBot = SpinnerBot(service)
                 spinnerBot.connect()
                 bots.add(spinnerBot)
             }
-            delay(30000)
+
+            do {
+                val alive = bots.count { it.isAlive() }
+                println("Alive bots count : $alive")
+                delay(5000)
+                bots.forEach { println("${it.lastFrameUpdate.robotState.name} health: ${it.lastFrameUpdate.robotState.health} score: ${it.lastFrameUpdate.robotState.score}") }
+            }while (bots.count { it.isAlive() } >= 2)
             bots.forEach {
                 println(it.lastFrameUpdate)
                 it.disconnect() }

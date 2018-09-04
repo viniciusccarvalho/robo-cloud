@@ -19,6 +19,7 @@ import org.jbox2d.dynamics.*
 import org.jbox2d.dynamics.contacts.Contact
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -31,9 +32,11 @@ import kotlin.concurrent.withLock
 class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUID.randomUUID().toString()) {
 
     private var liveBots = ConcurrentHashMap<String, ServerRobot>()
-    private var destroyedBots = mutableListOf<ServerRobot>()
+    private var destroyedBots = mutableMapOf<String, ServerRobot>()
     private var projectiles = ConcurrentHashMap<String, ServerProjectile>()
-    private var robotLock = ReentrantLock()
+    //Holds the events that will make any changes to the World or to the bots and projectiles collections
+    private var worldEvents = ConcurrentLinkedQueue<WorldEvent>()
+
     private val worldLock = ReentrantLock()
     private var watchers = mutableListOf<Channel<ArenaView>>()
     private val FPS = 30
@@ -50,25 +53,25 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
     private val bulletFixture: FixtureDef = FixtureDef()
     private val callback = object : ArenaCallback {
         override fun onFireEvent(robot: ServerRobot) {
-            createProjectile(robot)
+            worldEvents.offer(WorldEvent(WorldEventType.CREATE_BULLET, mapOf("robotId" to robot.id)))
         }
     }
 
     init {
         val robotShape = PolygonShape()
-        robotShape.setAsBox(config.botBox.width/2.0f, config.botBox.height/2.0f)
+        robotShape.setAsBox(config.botBox.width / 2.0f, config.botBox.height / 2.0f)
         robotFixture.shape = robotShape
 
         val bulletShape = PolygonShape()
-        bulletShape.setAsBox(6.0f, 6.0f )
+        bulletShape.setAsBox(6.0f, 6.0f)
         bulletFixture.shape = bulletShape
         bulletFixture.setSensor(true)
 
         val worldBounds = ChainShape()
-        val vertices = arrayOf(Vec2(0.0f,0.0f),
-                                           Vec2(0.0f, config.screen.height.toFloat()),
-                                           Vec2(config.screen.width.toFloat(), config.screen.height.toFloat()),
-                                           Vec2(config.screen.width.toFloat(), 0.0f))
+        val vertices = arrayOf(Vec2(0.0f, 0.0f),
+                Vec2(0.0f, config.screen.height.toFloat()),
+                Vec2(config.screen.width.toFloat(), config.screen.height.toFloat()),
+                Vec2(config.screen.width.toFloat(), 0.0f))
         worldBounds.createLoop(vertices, vertices.size)
         val bodyDef = BodyDef()
         bodyDef.userData = BodyData(FixtureType.WALL, emptyMap())
@@ -107,8 +110,8 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
     fun register(outgoing: StreamObserver<FrameUpdate>): ServerRobot {
         var robot: ServerRobot? = null
 
-        robotLock.withLock {
-            if(liveBots.size == 0){
+        worldLock.withLock {
+            if (liveBots.size == 0) {
                 state = ArenaState.SIMULATION_RUNNING
             }
             val id = UUID.randomUUID().toString()
@@ -119,7 +122,7 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
         return robot!!
     }
 
-    private fun createRobotBody(id: String) : Body{
+    private fun createRobotBody(id: String): Body {
         val robotCenter = findRobotSpot()
         val def = BodyDef()
         def.userData = BodyData(FixtureType.ROBOT, mapOf("id" to id))
@@ -127,11 +130,9 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
         //bots are placed facing the center of the cartesian coordinates
         def.angle = Math.atan2(robotCenter.y - 0.0, robotCenter.x - 0.0).toFloat()
         def.position = robotCenter
-        worldLock.withLock {
-            val body = world.createBody(def)
-            body.createFixture(robotFixture)
-            return body
-        }
+        val body = world.createBody(def)
+        body.createFixture(robotFixture)
+        return body
     }
 
     private fun findRobotSpot(): Vec2 {
@@ -156,42 +157,39 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
         while (isRunning()) {
             currentTime += ticks
             delta = currentTime - System.currentTimeMillis()
-            if(delta <= 0) {
+            if (delta <= 0) {
                 delta = ticks.toLong()
             }
-            robotLock.withLock {
-                if(this.state == ArenaState.SIMULATION_RUNNING) {
+            worldLock.withLock {
+                if (this.state == ArenaState.SIMULATION_RUNNING) {
                     filterBots()
-
+                    destroyBullets()
                     liveBots.values.forEach { robot ->
                         robot.updateCoordinates(delta)
-                        liveBots.values.forEach{ target ->
-                            if(robot.id != target.id){
+                        liveBots.values.forEach { target ->
+                            if (robot.id != target.id) {
                                 robot.scanTarget(target)
                             }
                         }
                     }
-                    worldLock.withLock {
-                        world.step(1.0f/30, 8, 3)
-                    }
-                    destroyBullets()
+                    handleWorldEvents()
+                    world.step(1.0f / 30, 8, 3)
                     liveBots.values.forEach { it.broadcast() }
-
-                    if(watchers.isNotEmpty()) {
-                        val view = ArenaView(this.id, this.state, System.currentTimeMillis(), liveBots.values.map { fromProto( it.getState() )}, projectiles.values.map { fromProto( it.getState() ) })
-                        val iterator = watchers.iterator()
-                        while (iterator.hasNext()){
-                            val channel = iterator.next()
-                            try{
-                                channel.send(view)
-                            } catch (e: Exception){
-                                iterator.remove()
-                            }
+                }
+                if (watchers.isNotEmpty()) {
+                    val view = ArenaView(this.id, this.state, System.currentTimeMillis(), liveBots.values.map { fromProto(it.getState()) }, projectiles.values.map { fromProto(it.getState()) })
+                    val iterator = watchers.iterator()
+                    while (iterator.hasNext()) {
+                        val channel = iterator.next()
+                        try {
+                            channel.send(view)
+                        } catch (e: Exception) {
+                            iterator.remove()
                         }
                     }
                 }
             }
-            if(liveBots.isEmpty()){
+            if (liveBots.isEmpty()) {
                 reset()
             }
             if (delta > 0) {
@@ -212,67 +210,115 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
         val sourceData = source.userData as BodyData
         val targetData = target.userData as BodyData
 
-        when(sourceData.type){
+        when (sourceData.type) {
             FixtureType.WALL -> {
-                if(targetData.type == FixtureType.BULLET){
+                if (targetData.type == FixtureType.BULLET) {
                     logger.info { "Collision between wall and bullet" }
-                    destroyBullet(target)
+                    worldEvents.offer(WorldEvent(WorldEventType.DESTROY_BULLET, mapOf("id" to targetData.context["id"]!!)))
                 }
             }
             FixtureType.ROBOT -> {
-                if(targetData.type == FixtureType.BULLET){
-                    if(sourceData.context["id"] != targetData.context["robotid"]) {
-                        val sourceBot = liveBots[sourceData.context["id"]]
-                        val targetBot = liveBots[targetData.context["robotId"]]
-                        targetBot?.let { sourceBot?.hitBy(it) }
-                        destroyBullet(target)
+                if (targetData.type == FixtureType.BULLET) {
+                    if (sourceData.context["id"] != targetData.context["robotId"]) {
+                        worldEvents.offer(WorldEvent(WorldEventType.DESTROY_BULLET, mapOf("id" to targetData.context["id"]!!)))
+                        worldEvents.offer(WorldEvent(WorldEventType.ROBOT_HIT, mapOf("robotId" to targetData.context["robotId"]!!,
+                                "targetRobotId" to sourceData.context["id"]!!)))
                     }
                 }
             }
             FixtureType.BULLET -> {
-                if(targetData.type == FixtureType.BULLET){
-                    destroyBullet(target)
-                    destroyBullet(source)
-                }else if(targetData.type == FixtureType.ROBOT){
-                    if(targetData.context["id"] != sourceData.context["robotId"]) {
-                        val targetBot = liveBots[targetData.context["id"]]
-                        val sourceBot = liveBots[sourceData.context["robotId"]]
-                        targetBot?.let { sourceBot?.hitBy(it) }
-                        destroyBullet(source)
+                if (targetData.type == FixtureType.BULLET) {
+                    worldEvents.offer(WorldEvent(WorldEventType.DESTROY_BULLET, mapOf("id" to targetData.context["id"]!!)))
+                    worldEvents.offer(WorldEvent(WorldEventType.DESTROY_BULLET, mapOf("id" to sourceData.context["id"]!!)))
+                } else if (targetData.type == FixtureType.ROBOT) {
+                    if (targetData.context["id"] != sourceData.context["robotId"]) {
+                        worldEvents.offer(WorldEvent(WorldEventType.DESTROY_BULLET, mapOf("id" to sourceData.context["id"]!!)))
+                        worldEvents.offer(WorldEvent(WorldEventType.ROBOT_HIT, mapOf("robotId" to sourceData.context["robotId"]!!,
+                                "targetRobotId" to targetData.context["id"]!!)))
                     }
                 }
             }
         }
     }
 
-    private fun destroyBullets() {
-        val iterator = projectiles.values.iterator()
-        while(iterator.hasNext()){
-            val bullet = iterator.next()
-            val pos = bullet.body.position
-            if(pos.x <=0 || pos.x >= config.screen.width || pos.y <= 0 || pos.y >= config.screen.height){
-                destroyBullet(bullet.body);
+    /**
+     * Handles
+     */
+    private fun handleWorldEvents() {
+        while (!worldEvents.isEmpty()) {
+            val event = worldEvents.poll()
+            when (event.type) {
+                WorldEventType.DESTROY_BULLET -> {
+                    val bulletId = event.context["id"]
+                    bulletId?.let {
+                        val bullet = projectiles[it]
+                        bullet?.let {
+                            world.destroyBody(it.body)
+                            val bot = liveBots[it.getRobotId()]
+                            bot?.let {
+                                it.reload()
+                            }
+                            projectiles.remove(it.id)
+                        }
+                    }
+                }
+                WorldEventType.CREATE_BULLET -> {
+                    val botId = event.context["robotId"]
+                    botId?.let {
+                        val bot = liveBots[it]
+                        bot?.let {
+                            createProjectile(it)
+                        }
+                    }
+                }
+                WorldEventType.ROBOT_HIT -> {
+                    val sourceId = event.context["robotId"]
+                    sourceId?.let {
+                        val sourceBot = liveBots[it]
+                        val targetBot = liveBots[event.context["targetRobotId"]]
+                        sourceBot?.let {
+                            sourceBot.hitEnemy(targetBot)
+                            targetBot?.let {
+                                targetBot.hitBy(sourceBot)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 
-    private fun destroyBullet(bullet: Body){
-        val data = bullet.userData as BodyData
-        synchronized(projectiles) {
-            projectiles.remove(data.context["id"])
+    /**
+     * Clears any bullet that has gone out of the world bounds (static to dynamic collision not working)
+     */
+    private fun destroyBullets() {
+        val iterator = projectiles.values.iterator()
+        while (iterator.hasNext()) {
+            val bullet = iterator.next()
+            val pos = bullet.body.position
+            if (pos.x <= 0 || pos.x >= config.screen.width || pos.y <= 0 || pos.y >= config.screen.height) {
+                worldEvents.offer(WorldEvent(WorldEventType.DESTROY_BULLET, mapOf("id" to bullet.id)))
+            }
         }
-        worldLock.withLock { world.destroyBody(bullet) }
+    }
+
+    private fun destroyBullet(bullet: Body) {
+        val data = bullet.userData as BodyData
+        projectiles.remove(data.context["id"])
+        world.destroyBody(bullet)
+        logger.info { "Bullet left world bounds" }
         liveBots[data.context["robotId"]]?.reload()
 
     }
 
     private fun reset() {
         this.state = ArenaState.STARTED
-        robotLock.withLock {
-            worldLock.withLock {
-                projectiles.values.forEach{ world.destroyBody(it.body) }
-            }
+        worldLock.withLock {
+            projectiles.values.forEach { world.destroyBody(it.body) }
+            liveBots.values.forEach { world.destroyBody(it.body) }
             projectiles.clear()
+            liveBots.clear()
+            destroyedBots.clear()
         }
     }
 
@@ -286,41 +332,40 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
         bodyDef.angle = robot.body.angle
         bodyDef.type = BodyType.KINEMATIC
         bodyDef.bullet = true
-        bodyDef.position = robot.body.position.moveTo(robot.body.angle, (config.botBox.width / 2.0f) + config.bulletBox.width * 1.2f )
+        bodyDef.position = robot.body.position.moveTo(robot.body.angle, (config.botBox.width / 2.0f) + config.bulletBox.width * 1.2f)
         bodyDef.userData = BodyData(FixtureType.BULLET, mapOf("id" to id, "robotId" to robot.id))
-        val y = 1000 *  MathUtils.sin(bodyDef.angle) * bulletSpeed
+        val y = 1000 * MathUtils.sin(bodyDef.angle) * bulletSpeed
         val x = 1000 * MathUtils.cos(bodyDef.angle) * bulletSpeed
         bodyDef.linearVelocity = Vec2(x, y)
-        worldLock.withLock {
-             bullet = world.createBody(bodyDef)
-            bullet.createFixture(bulletFixture)
-        }
-        synchronized(projectiles){
-            projectiles[id] = ServerProjectile(bullet!!, id)
-        }
-
-
+        bullet = world.createBody(bodyDef)
+        bullet.createFixture(bulletFixture)
+        projectiles[id] = ServerProjectile(bullet!!, id)
     }
 
     /**
-     * Removes any Robot that is on disconnect state from the list
+     * Removes any disconnected bot and moves dead bots to destroyed list
      */
-    private fun filterBots(){
+    private fun filterBots() {
         val iterator = liveBots.values.iterator()
-        while (iterator.hasNext()){
+        while (iterator.hasNext()) {
             val bot = iterator.next()
-            if(!bot.isConnected()){
-                worldLock.withLock { world.destroyBody(bot.body) }
+            if (!bot.isConnected()) {
+                world.destroyBody(bot.body)
+                iterator.remove()
+            }
+            if (!bot.isAlive()) {
+                world.destroyBody(bot.body)
+                destroyedBots[bot.id] = bot
                 iterator.remove()
             }
         }
     }
 
-    private fun fromProto(robotProto: io.igx.cloud.robo.proto.Robot) : Robot {
+    private fun fromProto(robotProto: io.igx.cloud.robo.proto.Robot): Robot {
         return Robot(robotProto.id, robotProto.name, Box(robotProto.box.bearing, Coordinates(robotProto.box.coordinates.x.toInt(), robotProto.box.coordinates.y.toInt())))
     }
 
-    private fun fromProto(projectileProto: io.igx.cloud.robo.proto.Projectile) : Projectile {
+    private fun fromProto(projectileProto: io.igx.cloud.robo.proto.Projectile): Projectile {
         return Projectile(projectileProto.robotId, projectileProto.robotId, Box(projectileProto.box.bearing, Coordinates(projectileProto.box.coordinates.x.toInt(), projectileProto.box.coordinates.y.toInt())))
     }
 

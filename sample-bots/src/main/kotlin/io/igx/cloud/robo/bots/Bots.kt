@@ -53,6 +53,9 @@ class SpinnerBot(service: GameServiceGrpc.GameServiceStub) : BaseBot(service){
     init {
         lastFrameUpdate = FrameUpdate.newBuilder()
                 .setTimestamp(System.currentTimeMillis())
+                .setRobotState(Robot.newBuilder()
+                        .setHealth(100)
+                        .build())
                 .build()
     }
 
@@ -83,7 +86,8 @@ class SpinnerBot(service: GameServiceGrpc.GameServiceStub) : BaseBot(service){
 
     fun disconnect(){
         this.client.onCompleted()
-
     }
+
+    fun isAlive() : Boolean = lastFrameUpdate.robotState.health > 0
 
 }
