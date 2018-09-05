@@ -29,7 +29,20 @@
     var delta = 1/30;
     var lastFrame = 0;
     var parallax = new Parallax()
+    var colors = ["#ff0000", "#00ff00", "#0000ff", "#00ffff", "#ffff00", "#ff00ff", "#FFA07A", "#008080"]
+    var botColors = {}
+    var colorCount=0;
 
+    function findBotColor(botId){
+        if(botColors[botId] == undefined){
+            botColors[botId] = colors[colorCount]
+            colorCount++
+            if(colorCount > colors.length){
+                colorCount = 0
+            }
+        }
+        return botColors[botId]
+    }
     function connect() {
         console.log("Begin connect");
         socket = new WebSocket("ws://" + window.location.host + "/arenas");
@@ -78,9 +91,12 @@
             console.log(projectile)
             ctx.save();
             ctx.beginPath();
+            ctx.fillStyle = findBotColor(projectile.robotId)
             ctx.translate(projectile.box.coordinates.x, projectile.box.coordinates.y);
-            ctx.rotate(projectile.box.bearing);
-            ctx.drawImage(bulletImg, -9 , -5 , 18, 11);
+
+            //ctx.rotate(projectile.box.bearing);
+            //ctx.drawImage(bulletImg, -9 , -5 , 18, 11);
+            ctx.arc(0, 0, 8, 0, 2*Math.PI )
             ctx.fill();
             ctx.restore();
         }
@@ -88,10 +104,28 @@
             var robot = arenaView.robots[i]
             ctx.save();
             ctx.beginPath();
+            ctx.fillStyle = findBotColor(robot.id)
             ctx.translate(robot.box.coordinates.x, robot.box.coordinates.y);
-            //ctx.translate(32 * i + 32, 48)
             ctx.rotate(robot.box.bearing);
             ctx.drawImage(botImg, -32, -32, 64, 64);
+
+            //ctx.fillRect(-32, -32, 64, 64);
+
+            ctx.fill();
+            ctx.restore();
+        }
+        for(i=0; i<arenaView.robots.length; i++){
+            var robot = arenaView.robots[i]
+            ctx.save();
+            ctx.globalAlpha = 0.2;
+            ctx.beginPath();
+            ctx.moveTo(robot.radar[0].x, robot.radar[0].y)
+            ctx.lineTo(robot.radar[1].x, robot.radar[1].y)
+            ctx.lineTo(robot.radar[2].x, robot.radar[2].y)
+            ctx.closePath();
+            ctx.fillStyle = findBotColor(robot.id);
+            ctx.stroke();
+            ctx.strokeStyle = findBotColor(robot.id);
             ctx.fill();
             ctx.restore();
         }

@@ -10,7 +10,7 @@ data class WorldConfig(val screen: Dimension = Dimension(1024, 768), val botBox 
 //START JSON friendly entities
 data class Coordinates( val x: Int, val y: Int)
 data class Box(val bearing: Float, val coordinates: Coordinates)
-data class Robot(val id: String, val name: String, val box: Box)
+data class Robot(val id: String, val name: String, val box: Box, val radar: List<Coordinates> = emptyList())
 data class Projectile(val id: String, val robotId: String, val box: Box)
 data class ArenaView(val id: String, val state: ArenaState, val timestamp: Long, val robots: List<Robot>, val projectiles: List<Projectile>)
 //END JSON friendly entities
@@ -42,8 +42,8 @@ class Radar(var center: Vec2, var bearing: Float, var range: Float = 1000.0f) {
     fun update(center: Vec2, bearing: Float){
         this.bearing = bearing
         points[0] = center
-        points[1] = center.moveTo((this.bearing+5), range)
-        points[2] = center.moveTo((this.bearing-5), range)
+        points[1] = center.moveTo((this.bearing - 5*MathUtils.DEG2RAD), range)
+        points[2] = center.moveTo((this.bearing + 5*MathUtils.DEG2RAD), range)
     }
 
     fun contains(other: Vec2) : Boolean{
@@ -69,7 +69,7 @@ interface ArenaCallback {
  *
  * Using screen coordinate space, therefore Y axis should decrease towards a 90 degree angle
  */
-fun Vec2.moveTo(angle: Float, distance: Float)  = Vec2(this.x + (MathUtils.cos(angle) * distance), this.y - (MathUtils.sin(angle)*distance) )
+fun Vec2.moveTo(angle: Float, distance: Float)  = Vec2(this.x + (MathUtils.cos(angle) * distance), this.y + (MathUtils.sin(angle)*distance) )
 
 fun normalizeAngle(angle: Double) : Double = angle + Math.ceil( -angle / 360 ) * 360
 

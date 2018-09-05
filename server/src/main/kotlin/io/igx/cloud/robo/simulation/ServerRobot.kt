@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: StreamObserver<FrameUpdate>, val body: Body, val worldConfig: WorldConfig = WorldConfig(), val callback: ArenaCallback) : Movable {
 
-    val MAX_PROJECTILES = 1
+    val MAX_PROJECTILES = 3
     val HIT_SCORE = 25
     val HIT_DAMAGE = 25
     var direction = 0.0f
@@ -31,13 +31,13 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
     var score = 0
     val events = LinkedList<Any>()
     val radar: Radar
+    var coolDown = 0
     private val name = RobotNameFactory.getName()
     private val connected = AtomicBoolean(false)
 
     init {
         val range = MathUtils.sqrt((worldConfig.screen.width * worldConfig.screen.width.toFloat()) + (worldConfig.screen.height * worldConfig.screen.height)) * 1.2f
         radar = Radar(Vec2(body.position.x, body.position.y), body.angle, range)
-
     }
 
     private val logger = KotlinLogging.logger {}
@@ -94,9 +94,8 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
     }
 
     override fun updateCoordinates(delta: Long) {
-
+        this.coolDown = Math.max(--coolDown, 0)
         radar.update(Vec2(body.position.x, body.position.y), body.angle)
-
     }
 
     fun disconnect() {
@@ -168,7 +167,6 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
     fun reload(){
         synchronized(this) {
             this.projectiles = Math.min(++this.projectiles, MAX_PROJECTILES)
-            println("Reloading bot $name current ammo : $projectiles")
         }
     }
 
@@ -205,8 +203,9 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
 
             ActionType.FIRE -> {
                 synchronized(this.projectiles){
-                    if(this.projectiles > 0){
+                    if(this.projectiles > 0 && this.coolDown == 0){
                         this.projectiles--
+                        this.coolDown = 30
                         callback.onFireEvent(this)
                     }
                 }

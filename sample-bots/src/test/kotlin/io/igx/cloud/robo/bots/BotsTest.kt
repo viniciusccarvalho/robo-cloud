@@ -31,7 +31,7 @@ class SpinnerTest {
                 println("Alive bots count : $alive")
                 delay(5000)
                 bots.forEach { println("${it.lastFrameUpdate.robotState.name} health: ${it.lastFrameUpdate.robotState.health} score: ${it.lastFrameUpdate.robotState.score}") }
-            }while (bots.count { it.isAlive() } >= 2)
+            }while (bots.count { it.isAlive() } > 1)
             bots.forEach {
                 println(it.lastFrameUpdate)
                 it.disconnect() }

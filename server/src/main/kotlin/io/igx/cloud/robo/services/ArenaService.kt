@@ -213,7 +213,6 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
         when (sourceData.type) {
             FixtureType.WALL -> {
                 if (targetData.type == FixtureType.BULLET) {
-                    logger.info { "Collision between wall and bullet" }
                     worldEvents.offer(WorldEvent(WorldEventType.DESTROY_BULLET, mapOf("id" to targetData.context["id"]!!)))
                 }
             }
@@ -332,7 +331,7 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
         bodyDef.angle = robot.body.angle
         bodyDef.type = BodyType.KINEMATIC
         bodyDef.bullet = true
-        bodyDef.position = robot.body.position.moveTo(robot.body.angle, (config.botBox.width / 2.0f) + config.bulletBox.width * 1.2f)
+        bodyDef.position = robot.body.position.moveTo(robot.body.angle, (config.botBox.width / 2.0f) + config.bulletBox.width)
         bodyDef.userData = BodyData(FixtureType.BULLET, mapOf("id" to id, "robotId" to robot.id))
         val y = 1000 * MathUtils.sin(bodyDef.angle) * bulletSpeed
         val x = 1000 * MathUtils.cos(bodyDef.angle) * bulletSpeed
@@ -362,7 +361,10 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
     }
 
     private fun fromProto(robotProto: io.igx.cloud.robo.proto.Robot): Robot {
-        return Robot(robotProto.id, robotProto.name, Box(robotProto.box.bearing, Coordinates(robotProto.box.coordinates.x.toInt(), robotProto.box.coordinates.y.toInt())))
+        val vectors = liveBots[robotProto.id]?.radar?.points
+        val points = vectors?.map { Coordinates(it.x.toInt(), it.y.toInt()) }
+
+        return Robot(robotProto.id, robotProto.name, Box(robotProto.box.bearing, Coordinates(robotProto.box.coordinates.x.toInt(), robotProto.box.coordinates.y.toInt())), points!!)
     }
 
     private fun fromProto(projectileProto: io.igx.cloud.robo.proto.Projectile): Projectile {
