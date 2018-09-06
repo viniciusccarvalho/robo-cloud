@@ -41,7 +41,7 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
     private var watchers = mutableListOf<Channel<ArenaView>>()
     private val FPS = 30
     private val ticks = 1000 / FPS
-    private val bulletSpeed = 200.0f
+    private val bulletSpeed = 2.0f
     var running = AtomicBoolean(false)
     var delta = 0L
     private var currentTime = System.currentTimeMillis()
@@ -51,6 +51,8 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
     private val world: World = World(Vec2())
     private val robotFixture: FixtureDef = FixtureDef()
     private val bulletFixture: FixtureDef = FixtureDef()
+    private val translator = CoordinateTranslator(config)
+
     private val callback = object : ArenaCallback {
         override fun onFireEvent(robot: ServerRobot) {
             worldEvents.offer(WorldEvent(WorldEventType.CREATE_BULLET, mapOf("robotId" to robot.id)))
@@ -59,19 +61,20 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
 
     init {
         val robotShape = PolygonShape()
-        robotShape.setAsBox(config.botBox.width / 2.0f, config.botBox.height / 2.0f)
+        robotShape.setAsBox(translator.scaleToWorld(config.botBox.width) / 2.0f, translator.scaleToWorld(config.botBox.height) / 2.0f)
         robotFixture.shape = robotShape
 
         val bulletShape = PolygonShape()
-        bulletShape.setAsBox(6.0f, 6.0f)
+        bulletShape.setAsBox(translator.scaleToWorld(6.0f), translator.scaleToWorld(6.0f))
         bulletFixture.shape = bulletShape
         bulletFixture.setSensor(true)
 
         val worldBounds = ChainShape()
-        val vertices = arrayOf(Vec2(0.0f, 0.0f),
-                Vec2(0.0f, config.screen.height.toFloat()),
-                Vec2(config.screen.width.toFloat(), config.screen.height.toFloat()),
-                Vec2(config.screen.width.toFloat(), 0.0f))
+        val vertices = arrayOf( translator.screenToWorld(Vec2(0.0f, 0.0f)),
+                translator.screenToWorld(Vec2(0.0f, config.screen.height.toFloat())),
+                translator.screenToWorld(Vec2(config.screen.width.toFloat(), config.screen.height.toFloat())),
+                translator.screenToWorld(Vec2(config.screen.width.toFloat(), 0.0f))
+        )
         worldBounds.createLoop(vertices, vertices.size)
         val bodyDef = BodyDef()
         bodyDef.userData = BodyData(FixtureType.WALL, emptyMap())
@@ -124,6 +127,7 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
 
     private fun createRobotBody(id: String): Body {
         val robotCenter = findRobotSpot()
+        println("Creating bot on world position: $robotCenter and screen coordinates ${translator.worldToScreen(robotCenter)}" )
         val def = BodyDef()
         def.userData = BodyData(FixtureType.ROBOT, mapOf("id" to id))
         def.type = BodyType.DYNAMIC
@@ -140,8 +144,8 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
         val xHi = config.screen.width - (config.botBox.width * 1.1f)
         val yLow = config.botBox.height * 1.1f
         val yHi = config.screen.height - (config.botBox.height * 1.1f)
-
-        return Vec2(MathUtils.randomFloat(xLow, xHi), MathUtils.randomFloat(yLow, yHi))
+        val screenPosition = Vec2(MathUtils.randomFloat(xLow, xHi), MathUtils.randomFloat(yLow, yHi))
+        return translator.screenToWorld(screenPosition)
     }
 
 
@@ -295,7 +299,7 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
         while (iterator.hasNext()) {
             val bullet = iterator.next()
             val pos = bullet.body.position
-            if (pos.x <= 0 || pos.x >= config.screen.width || pos.y <= 0 || pos.y >= config.screen.height) {
+            if (pos.x <= 0 || pos.x >= translator.scaleToWorld(config.screen.width) || pos.y <= 0 || pos.y >= translator.scaleToWorld(config.screen.height)) {
                 worldEvents.offer(WorldEvent(WorldEventType.DESTROY_BULLET, mapOf("id" to bullet.id)))
             }
         }
@@ -331,10 +335,10 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
         bodyDef.angle = robot.body.angle
         bodyDef.type = BodyType.KINEMATIC
         bodyDef.bullet = true
-        bodyDef.position = robot.body.position.moveTo(robot.body.angle, (config.botBox.width / 2.0f) + config.bulletBox.width)
+        bodyDef.position = robot.body.position.moveTo(robot.body.angle, (translator.scaleToWorld(config.botBox.width) / 2.0f) + translator.scaleToWorld(config.bulletBox.width))
         bodyDef.userData = BodyData(FixtureType.BULLET, mapOf("id" to id, "robotId" to robot.id))
-        val y = 1000 * MathUtils.sin(bodyDef.angle) * bulletSpeed
-        val x = 1000 * MathUtils.cos(bodyDef.angle) * bulletSpeed
+        val y = MathUtils.sin(bodyDef.angle) * bulletSpeed
+        val x = MathUtils.cos(bodyDef.angle) * bulletSpeed
         bodyDef.linearVelocity = Vec2(x, y)
         bullet = world.createBody(bodyDef)
         bullet.createFixture(bulletFixture)
@@ -361,14 +365,17 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
     }
 
     private fun fromProto(robotProto: io.igx.cloud.robo.proto.Robot): Robot {
-        val vectors = liveBots[robotProto.id]?.radar?.points
+        val vectors = liveBots[robotProto.id]?.radar?.points?.map { translator.worldToScreen(it) }
         val points = vectors?.map { Coordinates(it.x.toInt(), it.y.toInt()) }
-
-        return Robot(robotProto.id, robotProto.name, Box(robotProto.box.bearing, Coordinates(robotProto.box.coordinates.x.toInt(), robotProto.box.coordinates.y.toInt())), points!!)
+        val worldPos = Vec2(robotProto.box.coordinates.x, robotProto.box.coordinates.y)
+        val screenPosition = translator.worldToScreen(worldPos)
+        return Robot(robotProto.id, robotProto.name, Box(robotProto.box.bearing * -1, Coordinates(screenPosition.x.toInt(), screenPosition.y.toInt())), points!!, robotProto.health, robotProto.score)
     }
 
     private fun fromProto(projectileProto: io.igx.cloud.robo.proto.Projectile): Projectile {
-        return Projectile(projectileProto.robotId, projectileProto.robotId, Box(projectileProto.box.bearing, Coordinates(projectileProto.box.coordinates.x.toInt(), projectileProto.box.coordinates.y.toInt())))
+        val worldPos = Vec2(projectileProto.box.coordinates.x, projectileProto.box.coordinates.y)
+        val screenPosition = translator.worldToScreen(worldPos)
+        return Projectile(projectileProto.robotId, projectileProto.robotId, Box(projectileProto.box.bearing * -1, Coordinates(screenPosition.x.toInt(), screenPosition.y.toInt())))
     }
 
 

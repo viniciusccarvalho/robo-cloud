@@ -25,7 +25,7 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
     val HIT_DAMAGE = 25
     var direction = 0.0f
     var rotation = 0.0f
-    val speed = 50.0f
+    val speed = 2.0f
     var health = 100
     var projectiles = 1
     var score = 0
@@ -34,9 +34,11 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
     var coolDown = 0
     private val name = RobotNameFactory.getName()
     private val connected = AtomicBoolean(false)
+    private val translator = CoordinateTranslator(worldConfig)
 
     init {
-        val range = MathUtils.sqrt((worldConfig.screen.width * worldConfig.screen.width.toFloat()) + (worldConfig.screen.height * worldConfig.screen.height)) * 1.2f
+
+        val range = MathUtils.sqrt((translator.worldWidth*translator.worldWidth) + (translator.worldHeight*translator.worldHeight)) * 1.2f
         radar = Radar(Vec2(body.position.x, body.position.y), body.angle, range)
     }
 
@@ -106,6 +108,7 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
 
     fun scanTarget(target: ServerRobot) {
         if (radar.contains(Vec2(body.position.x, body.position.y))) {
+            logger.info { "bot : $name (${body.position.x}, ${body.position.y} @ ${body.angle}) detected ${target.name} (${target.body.position.x}, ${target.body.position.y} @ ${target.body.angle})" }
             events.add(EnemyDetectedEvent.newBuilder()
                     .setTimestamp(System.currentTimeMillis())
                     .setTarget(target.getState())
@@ -167,6 +170,7 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
     fun reload(){
         synchronized(this) {
             this.projectiles = Math.min(++this.projectiles, MAX_PROJECTILES)
+            this.coolDown = 30
         }
     }
 
@@ -216,7 +220,7 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
             ActionType.LEAVE -> "leave"
 
             ActionType.ROTATE -> {
-                this.rotation = normalize(action.value)
+                this.rotation = normalize(action.value) * 0.1f
                 this.body.angularVelocity = this.rotation
             }
         }

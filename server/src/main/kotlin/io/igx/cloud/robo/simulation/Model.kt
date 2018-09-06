@@ -10,7 +10,7 @@ data class WorldConfig(val screen: Dimension = Dimension(1024, 768), val botBox 
 //START JSON friendly entities
 data class Coordinates( val x: Int, val y: Int)
 data class Box(val bearing: Float, val coordinates: Coordinates)
-data class Robot(val id: String, val name: String, val box: Box, val radar: List<Coordinates> = emptyList())
+data class Robot(val id: String, val name: String, val box: Box, val radar: List<Coordinates> = emptyList(), val health: Int, val score: Int)
 data class Projectile(val id: String, val robotId: String, val box: Box)
 data class ArenaView(val id: String, val state: ArenaState, val timestamp: Long, val robots: List<Robot>, val projectiles: List<Projectile>)
 //END JSON friendly entities
@@ -31,7 +31,7 @@ enum class WorldEventType {
  *
  * See https://wrf.ecse.rpi.edu//Research/Short_Notes/pnpoly.html for reference implementation
  */
-class Radar(var center: Vec2, var bearing: Float, var range: Float = 1000.0f) {
+class Radar(var center: Vec2, var bearing: Float, val range: Float = 10.0f) {
 
     var points : Array<Vec2> = Array(3) { _ -> Vec2(0.0f, 0.0f) }
 
@@ -71,7 +71,7 @@ interface ArenaCallback {
  */
 fun Vec2.moveTo(angle: Float, distance: Float)  = Vec2(this.x + (MathUtils.cos(angle) * distance), this.y + (MathUtils.sin(angle)*distance) )
 
-fun normalizeAngle(angle: Double) : Double = angle + Math.ceil( -angle / 360 ) * 360
+fun normalizeAngle(angle: Float) : Float = angle + MathUtils.ceil( -angle / 360.0f ) * 360.0f
 
 object RobotNameFactory {
 
@@ -82,5 +82,42 @@ object RobotNameFactory {
     fun getName() : String {
         return names[random.nextInt(names.size)]
     }
+
+}
+
+class CoordinateTranslator(val config:WorldConfig, val scaleFactor:Float = 50.0f){
+
+    val worldWidth = config.screen.width / scaleFactor
+    val worldHeight = config.screen.height / scaleFactor
+
+    fun screenToWorld(coordinates: Vec2) : Vec2 {
+        val xWorld = coordinates.x/scaleFactor - worldWidth/2
+        val yWorld = worldHeight/2 - coordinates.y/scaleFactor
+        return Vec2(xWorld, yWorld)
+    }
+
+    fun worldToScreen(coordinates: Vec2) : Vec2 {
+        val xScreen = config.screen.width/2 + (coordinates.x * scaleFactor)
+        val yScreen = config.screen.height/2 - (coordinates.y * scaleFactor)
+        return Vec2(xScreen, yScreen)
+    }
+
+    fun scaleToScreen(value: Float) : Float{
+        return value * scaleFactor
+    }
+
+    fun scaleToScreen(value: Int) : Int {
+        return scaleToScreen(value.toFloat()).toInt()
+    }
+
+    fun scaleToWorld(value: Float) : Float {
+        return value / scaleFactor
+    }
+
+    fun scaleToWorld(value: Int) : Int {
+        return scaleToWorld(value.toFloat()).toInt()
+    }
+
+
 
 }

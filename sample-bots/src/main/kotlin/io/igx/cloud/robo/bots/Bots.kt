@@ -45,7 +45,7 @@ abstract class BaseBot(val service: GameServiceGrpc.GameServiceStub) {
     }
 }
 
-class SpinnerBot(service: GameServiceGrpc.GameServiceStub) : BaseBot(service){
+class SpinnerBot(service: GameServiceGrpc.GameServiceStub, val move: Boolean = false) : BaseBot(service){
 
     var initialized = false
     var lastFrameUpdate: FrameUpdate
@@ -67,11 +67,13 @@ class SpinnerBot(service: GameServiceGrpc.GameServiceStub) : BaseBot(service){
                     .setActionType(ActionType.ROTATE)
                     .setValue(1.0f)
                     .build())
-//            send(Action.newBuilder()
-//                    .setTimestamp(System.currentTimeMillis())
-//                    .setActionType(ActionType.THROTTLE)
-//                    .setValue(1.0f)
-//                    .build())
+            if(move){
+                send(Action.newBuilder()
+                        .setTimestamp(System.currentTimeMillis())
+                        .setActionType(ActionType.THROTTLE)
+                        .setValue(1.0f)
+                        .build())
+            }
             initialized = true
         }
         if(frameUpdate.eventType == EventType.ENEMY_DETECTED){
