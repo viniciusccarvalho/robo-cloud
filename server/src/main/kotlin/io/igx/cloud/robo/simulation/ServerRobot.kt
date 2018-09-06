@@ -1,6 +1,5 @@
 package io.igx.cloud.robo.simulation
 
-import io.grpc.Server
 import io.grpc.stub.StreamObserver
 import io.igx.cloud.robo.Movable
 import io.igx.cloud.robo.proto.*
@@ -19,27 +18,23 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Internal state is queued upon receive of Action stream events, the ArenaService will request an update
  * to the internal state and any perceived event is then sent back to the clients
  */
-class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: StreamObserver<FrameUpdate>, val body: Body, val worldConfig: WorldConfig = WorldConfig(), val callback: ArenaCallback) : Movable {
+class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: StreamObserver<FrameUpdate>, val body: Body, val callback: ArenaCallback) : Movable {
 
-    val MAX_PROJECTILES = 3
-    val HIT_SCORE = 25
-    val HIT_DAMAGE = 25
-    var direction = 0.0f
-    var rotation = 0.0f
-    val speed = 2.0f
-    var health = 100
-    var projectiles = 1
-    var score = 0
     val events = LinkedList<Any>()
     val radar: Radar
-    var coolDown = 0
     val name = RobotNameFactory.getName()
     private val connected = AtomicBoolean(false)
-    private val translator = CoordinateTranslator(worldConfig)
+    private val helper = GameHelper
+    var direction = 0.0f
+    var rotation = 0.0f
+    var health = 100
+    var projectiles = helper.engineConfig.botConfig.maxProjectiles
+    var score = 0
+    var coolDown = 0
 
     init {
 
-        val range = MathUtils.sqrt((translator.worldWidth*translator.worldWidth) + (translator.worldHeight*translator.worldHeight))
+        val range = MathUtils.sqrt((helper.worldWidth*helper.worldWidth) + (helper.worldHeight*helper.worldHeight))
         radar = Radar(Vec2(body.position.x, body.position.y), body.angle, range)
     }
 
@@ -124,6 +119,7 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
             EventType.COLISION_DETECTED -> builder.collisionDetectedEvent = event as CollisionDetectedEvent
             EventType.HIT_BY -> builder.hitByEvent = event as HitByEvent
             EventType.STARTED -> builder.startedEvent = event as StartedEvent
+            else -> logger.warn { "Invalid state" }
         }
 
     }
@@ -147,15 +143,15 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
     fun getState(): Robot {
         return Robot.newBuilder()
                 .setId(id)
-                .setSpeed(speed)
+                .setSpeed(helper.engineConfig.botConfig.speed)
                 .setHealth(health)
                 .setScore(score)
                 .setName(name)
                 .setProjectiles(projectiles)
                 .setBox(io.igx.cloud.robo.proto.Box.newBuilder()
                         .setBearing(this.body.angle)
-                        .setHeight(this.worldConfig.botBox.height)
-                        .setWidth(this.worldConfig.botBox.width)
+                        .setHeight(helper.engineConfig.botConfig.box.height)
+                        .setWidth(helper.engineConfig.botConfig.box.width)
                         .setCoordinates(io.igx.cloud.robo.proto.Coordinates.newBuilder()
                                 .setX(this.body.position.x)
                                 .setY(this.body.position.y)
@@ -166,15 +162,15 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
 
     fun reload(){
         synchronized(this) {
-            this.projectiles = Math.min(++this.projectiles, MAX_PROJECTILES)
-            this.coolDown = 30
+            this.projectiles = Math.min(++this.projectiles, helper.engineConfig.botConfig.maxProjectiles)
+            this.coolDown = helper.engineConfig.fps / 2
         }
     }
 
     fun hitBy(source: ServerRobot){
         synchronized(this) {
-            this.health = Math.max(0, this.health - HIT_DAMAGE)
-            this.score -= 10
+            this.health = Math.max(0, this.health - helper.engineConfig.simulationConfig.hitDamage)
+            this.score -= helper.engineConfig.simulationConfig.hitDamage
             events.add(HitByEvent.newBuilder()
                     .setTimestamp(System.currentTimeMillis())
                     .setSource(source.getState())
@@ -184,7 +180,7 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
 
     fun hitEnemy(target: ServerRobot?) {
         synchronized(this){
-            this.score += HIT_SCORE
+            this.score += helper.engineConfig.simulationConfig.hitScore
             events.add(HitEnemyEvent.newBuilder()
                     .setTimestamp(System.currentTimeMillis())
                     .setTarget(target?.getState())
@@ -196,8 +192,8 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
         when (action.actionType) {
             ActionType.THROTTLE -> {
                 this.direction = normalize(action.value)
-                val x = 1.0f * MathUtils.cos(body.angle) * direction * speed
-                val y = 1.0f * MathUtils.sin(body.angle) * direction * speed
+                val x = 1.0f * MathUtils.cos(body.angle) * direction * helper.engineConfig.botConfig.speed
+                val y = 1.0f * MathUtils.sin(body.angle) * direction * helper.engineConfig.botConfig.speed
                 this.body.linearVelocity = Vec2(x, y)
 
             }
@@ -206,7 +202,7 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
                 synchronized(this.projectiles){
                     if(this.projectiles > 0 && this.coolDown == 0){
                         this.projectiles--
-                        this.coolDown = 30
+                        this.coolDown = helper.engineConfig.fps
                         callback.onFireEvent(this)
                     }
                 }
@@ -220,6 +216,7 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
                 this.rotation = normalize(action.value) * 0.4f
                 this.body.angularVelocity = this.rotation
             }
+            else -> logger.warn { "Invalid state" }
         }
     }
 

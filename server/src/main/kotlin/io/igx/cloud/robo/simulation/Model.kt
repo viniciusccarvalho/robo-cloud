@@ -4,9 +4,12 @@ import org.jbox2d.common.MathUtils
 import org.jbox2d.common.Vec2
 import java.util.*
 
-
+data class EngineConfig(val worldConfig: WorldConfig, val fps: Int = 30, val botConfig: RobotConfig, val bulletConfig: BulletConfig, val simulationConfig: SimulationConfig = SimulationConfig())
+data class SimulationConfig(val hitScore: Int = 10, val hitDamage: Int = 25)
+data class RobotConfig(val box: Dimension = Dimension(64, 64), val speed: Float, val maxProjectiles: Int, val health: Int)
+data class BulletConfig(val box: Dimension = Dimension(6, 6), val speed: Float)
 data class Dimension(val width: Int, val height: Int)
-data class WorldConfig(val screen: Dimension = Dimension(1024, 768), val botBox : Dimension = Dimension(64, 64), val bulletBox : Dimension = Dimension(18, 11))
+data class WorldConfig(val screen: Dimension = Dimension(1024, 768), val scaleFactor: Float)
 //START JSON friendly entities
 data class Coordinates( val x: Int, val y: Int)
 data class Box(val bearing: Float, val coordinates: Coordinates)
@@ -77,8 +80,6 @@ object RobotNameFactory {
 
     private val names: List<String> = RobotNameFactory::class.java.classLoader.getResource("robots.txt").readText().split("\n")
     private val random = Random()
-
-
     fun getName() : String {
         return names[random.nextInt(names.size)]
     }
@@ -118,6 +119,47 @@ class CoordinateTranslator(val config:WorldConfig, val scaleFactor:Float = 50.0f
         return scaleToWorld(value.toFloat()).toInt()
     }
 
+}
+
+object GameHelper {
+
+    val engineConfig: EngineConfig
+    val worldWidth: Float
+    val worldHeight: Float
+
+    init {
+        engineConfig = EngineConfig(WorldConfig(scaleFactor = 50.0f), fps=30, botConfig = RobotConfig(speed = 2.0f, maxProjectiles = 3, health = 100), bulletConfig = BulletConfig(speed = 4.0f))
+        worldWidth = engineConfig.worldConfig.screen.width/engineConfig.worldConfig.scaleFactor
+        worldHeight = engineConfig.worldConfig.screen.height/engineConfig.worldConfig.scaleFactor
+    }
+
+    fun screenToWorld(coordinates: Vec2) : Vec2 {
+        val xWorld = coordinates.x/engineConfig.worldConfig.scaleFactor - worldWidth/2
+        val yWorld = worldHeight/2 - coordinates.y/engineConfig.worldConfig.scaleFactor
+        return Vec2(xWorld, yWorld)
+    }
+
+    fun worldToScreen(coordinates: Vec2) : Vec2 {
+        val xScreen = engineConfig.worldConfig.screen.width/2 + (coordinates.x * engineConfig.worldConfig.scaleFactor)
+        val yScreen = engineConfig.worldConfig.screen.height/2 - (coordinates.y * engineConfig.worldConfig.scaleFactor)
+        return Vec2(xScreen, yScreen)
+    }
+
+    fun scaleToScreen(value: Float) : Float{
+        return value * engineConfig.worldConfig.scaleFactor
+    }
+
+    fun scaleToScreen(value: Int) : Int {
+        return scaleToScreen(value.toFloat()).toInt()
+    }
+
+    fun scaleToWorld(value: Float) : Float {
+        return value / engineConfig.worldConfig.scaleFactor
+    }
+
+    fun scaleToWorld(value: Int) : Int {
+        return scaleToWorld(value.toFloat()).toInt()
+    }
 
 
 }
