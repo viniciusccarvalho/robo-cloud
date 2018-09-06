@@ -20,7 +20,7 @@ class SpinnerTest {
             val channel = ManagedChannelBuilder.forAddress("localhost", 5000).usePlaintext().build()
             val service = GameServiceGrpc.newStub(channel)
             var bots = mutableListOf<SpinnerBot>()
-            for (i in 1..2){
+            for (i in 1..4){
                 val spinnerBot = SpinnerBot(service, false)
                 spinnerBot.connect()
                 bots.add(spinnerBot)

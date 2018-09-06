@@ -1,5 +1,6 @@
 package io.igx.cloud.robo.simulation
 
+import io.grpc.Server
 import io.grpc.stub.StreamObserver
 import io.igx.cloud.robo.Movable
 import io.igx.cloud.robo.proto.*
@@ -32,13 +33,13 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
     val events = LinkedList<Any>()
     val radar: Radar
     var coolDown = 0
-    private val name = RobotNameFactory.getName()
+    val name = RobotNameFactory.getName()
     private val connected = AtomicBoolean(false)
     private val translator = CoordinateTranslator(worldConfig)
 
     init {
 
-        val range = MathUtils.sqrt((translator.worldWidth*translator.worldWidth) + (translator.worldHeight*translator.worldHeight)) * 1.2f
+        val range = MathUtils.sqrt((translator.worldWidth*translator.worldWidth) + (translator.worldHeight*translator.worldHeight))
         radar = Radar(Vec2(body.position.x, body.position.y), body.angle, range)
     }
 
@@ -106,16 +107,12 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
 
     fun isConnected(): Boolean = connected.get()
 
-    fun scanTarget(target: ServerRobot) {
-        if (radar.contains(Vec2(body.position.x, body.position.y))) {
-            logger.info { "bot : $name (${body.position.x}, ${body.position.y} @ ${body.angle}) detected ${target.name} (${target.body.position.x}, ${target.body.position.y} @ ${target.body.angle})" }
-            events.add(EnemyDetectedEvent.newBuilder()
-                    .setTimestamp(System.currentTimeMillis())
-                    .setTarget(target.getState())
-                    .build())
-        }
+    fun onRayCast(target: ServerRobot){
+        events.add(EnemyDetectedEvent.newBuilder()
+                .setTimestamp(System.currentTimeMillis())
+                .setTarget(target.getState())
+                .build())
     }
-
 
     private fun setEvent(builder: FrameUpdate.Builder, event: Any) {
         val type = findEventType(event)
@@ -220,7 +217,7 @@ class ServerRobot(val id: String = UUID.randomUUID().toString(), val outgoing: S
             ActionType.LEAVE -> "leave"
 
             ActionType.ROTATE -> {
-                this.rotation = normalize(action.value) * 0.1f
+                this.rotation = normalize(action.value) * 0.4f
                 this.body.angularVelocity = this.rotation
             }
         }

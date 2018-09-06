@@ -10,6 +10,7 @@ import kotlinx.coroutines.experimental.launch
 import mu.KotlinLogging
 import org.jbox2d.callbacks.ContactImpulse
 import org.jbox2d.callbacks.ContactListener
+import org.jbox2d.callbacks.RayCastCallback
 import org.jbox2d.collision.Manifold
 import org.jbox2d.collision.shapes.ChainShape
 import org.jbox2d.collision.shapes.PolygonShape
@@ -52,6 +53,8 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
     private val robotFixture: FixtureDef = FixtureDef()
     private val bulletFixture: FixtureDef = FixtureDef()
     private val translator = CoordinateTranslator(config)
+
+    val range = MathUtils.sqrt((translator.worldWidth*translator.worldWidth) + (translator.worldHeight*translator.worldHeight))
 
     private val callback = object : ArenaCallback {
         override fun onFireEvent(robot: ServerRobot) {
@@ -170,11 +173,13 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
                     destroyBullets()
                     liveBots.values.forEach { robot ->
                         robot.updateCoordinates(delta)
-                        liveBots.values.forEach { target ->
-                            if (robot.id != target.id) {
-                                robot.scanTarget(target)
+                        world.raycast(RayCastCallback { fixture, v1, v2, fraction ->
+                            val data = fixture.body.userData as BodyData
+                            if(data.type == FixtureType.ROBOT){
+                                robot.onRayCast(liveBots[data.context["id"]]!!)
                             }
-                        }
+                            fraction
+                        }, robot.body.position, robot.body.position.moveTo(robot.body.angle, range))
                     }
                     handleWorldEvents()
                     world.step(1.0f / 30, 8, 3)
@@ -293,28 +298,20 @@ class ArenaService(val config: WorldConfig = WorldConfig(), val id: String = UUI
 
     /**
      * Clears any bullet that has gone out of the world bounds (static to dynamic collision not working)
+     * We use screen coordinates to simplify detection as it does not have negative numbers
      */
     private fun destroyBullets() {
         val iterator = projectiles.values.iterator()
         while (iterator.hasNext()) {
             val bullet = iterator.next()
-            val pos = bullet.body.position
-            if (pos.x <= 0 || pos.x >= translator.scaleToWorld(config.screen.width) || pos.y <= 0 || pos.y >= translator.scaleToWorld(config.screen.height)) {
+            val pos = translator.worldToScreen(bullet.body.position)
+            if (pos.x <= 0 || pos.x >= config.screen.width || pos.y <= 0 || pos.y >= config.screen.height) {
                 worldEvents.offer(WorldEvent(WorldEventType.DESTROY_BULLET, mapOf("id" to bullet.id)))
             }
         }
     }
 
-    private fun destroyBullet(bullet: Body) {
-        val data = bullet.userData as BodyData
-        projectiles.remove(data.context["id"])
-        world.destroyBody(bullet)
-        logger.info { "Bullet left world bounds" }
-        liveBots[data.context["robotId"]]?.reload()
-
-    }
-
-    private fun reset() {
+      private fun reset() {
         this.state = ArenaState.STARTED
         worldLock.withLock {
             projectiles.values.forEach { world.destroyBody(it.body) }
