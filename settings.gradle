@@ -1,7 +1,17 @@
+pluginManagement {
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.id == "kotlin2js") {
+                useModule("org.jetbrains.kotlin:kotlin-gradle-plugin:${requested.version}")
+            }
+        }
+    }
+}
 rootProject.name = 'robo-cloud'
 include 'common'
 include 'server'
 include 'sample-bots'
+include 'dashboard'
 
 project(":common").name = "robo-cloud-common"
 project(":server").name = "robo-cloud-server"

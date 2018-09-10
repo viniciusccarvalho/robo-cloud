@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Bot Wars</title>
+    <link href="https://fonts.googleapis.com/css?family=Press+Start+2P" rel="stylesheet"/>
+    <style>
+        canvas {
+            font-family: 'Press Start 2P', cursive;
+        }
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background: #000000 !important;
+            color: #ffffff;
+        }
+    </style>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+</head>
+<body>
+
+
+<div>
+    <canvas id="myCanvas" width="1494" height="868" style="background-color: black"></canvas>
+</div>
+<div>
+    <div >
+        <button type="button" class="btn btn-primary" style="font-family: 'Press Start 2P' ; font-size: x-small; width: 140px" id="connectButton">Connect</button>
+    </div>
+    <div style="font-family: 'Press Start 2P'; font-size: x-small">
+        Frames received: <span id="counter" style="font-family: 'Press Start 2P'">0</span>
+    </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script type="text/javascript" src="js/kotlin.js"></script>
+<script type="text/javascript" src="js/dashboard.js"></script>
+</body>
+</html>
