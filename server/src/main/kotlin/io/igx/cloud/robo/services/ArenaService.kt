@@ -30,7 +30,7 @@ import kotlin.concurrent.withLock
  * The ArenaService is responsible to maintain the state of a match, update the frames,
  * detect collisions.
  */
-class ArenaService(val id: String = UUID.randomUUID().toString()) {
+class ArenaService(val id: String = UUID.randomUUID().toString(), var debugEnabled: Boolean = false) {
 
     private val logger = KotlinLogging.logger {}
     private val world: World = World(Vec2())

@@ -9,15 +9,18 @@ import jquery.*
  * @author vinicius
  *
  */
-val BORDER = 50
-val ANIMATION_WIDTH = 1024
-val ANIMATIION_HEIGHT = 768
-val PANEL_WIDTH = 320
+const val BORDER = 50
+const val ANIMATION_WIDTH = 1024
+const val ANIMATIION_HEIGHT = 768
+const val PANEL_WIDTH = 320
 var connected: Boolean = false
+val canvas = document.getElementById("myCanvas") as HTMLCanvasElement
+val context = canvas.getContext("2d") as CanvasRenderingContext2D
+val ship = Sprite(context, "images/ship.png", 64, 64, arrayOf(arrayOf(0, 0)))
+val parallax = Parallax(ctx = context)
 
 fun main(args: Array<String>) {
-    val canvas = document.getElementById("myCanvas") as HTMLCanvasElement
-    val context = canvas.getContext("2d") as CanvasRenderingContext2D
+
 
     val borderWall = Sprite(context,
             "images/tilesetpr.png",
@@ -28,20 +31,24 @@ fun main(args: Array<String>) {
                     arrayOf(7, 72),  //plain
                     arrayOf(64, 72)) // corner
             )
-    val ship = Sprite(context, "images/ship.png", 64, 64, arrayOf(arrayOf(0, 0)))
-    val parallax = Parallax(ctx = context)
+
+
 
     window.onload = {
         val canvasWindow = CanvasWindow(sprite = borderWall)
         canvasWindow.draw()
-        parallax.draw()
+
     }
     jq("#connectButton").click {
         val button = jq("#connectButton")
         connected = !connected
         if(connected){
             val socket = WebSocket("ws://localhost:8080/arenas")
-            socket.onmessage = { event ->  }
+            socket.onmessage = { event ->
+                val message  = event.unsafeCast<MessageEvent>()
+                val view: ArenaView = JSON.parse(message.data.toString())
+                onViewUpdate(view)
+            }
             connected = true
             button.text("Disconnect")
             button.removeClass("btn-primary")
@@ -54,7 +61,13 @@ fun main(args: Array<String>) {
             button.addClass("btn-primary")
         }
     }
+}
 
+fun onViewUpdate(view: ArenaView) {
+    parallax.draw()
+    view.robots.forEach { bot ->
+        ship.draw(0, bot.box.coordinates.x -32, bot.box.coordinates.y -32 , bot.box.bearing.toDouble())
+    }
 
 }
 
@@ -68,24 +81,20 @@ class Sprite(val ctx: CanvasRenderingContext2D, val path: String, val width: Int
 
     fun draw(position: Int, x: Int, y: Int, angle: Double){
         var pos = positions[position]
-        ctx.save()
-        if(angle != 0.0){
-            ctx.translate(x + this.width/2.0, y + this.height/2.0)
-            ctx.rotate(angle)
-            ctx.drawImage(this.image, pos[0].toDouble(), pos[1].toDouble(), this.width.toDouble(), this.height.toDouble(), -this.width/2.0, -this.width/2.0, this.width.toDouble(), this.height.toDouble())
 
-        }else{
-            ctx.drawImage(
-                    this.image,
-                    pos[0].toDouble(),
-                    pos[1].toDouble(),
-                    this.width.toDouble(),
-                    this.height.toDouble(),
-                    x.toDouble(), y.toDouble(),
-                    this.width.toDouble(),
-                    this.height.toDouble()
-            )
-        }
+        ctx.save()
+        ctx.translate(x + this.width/2.0, y + this.height/2.0)
+        ctx.rotate(angle)
+        ctx.drawImage(this.image,
+        pos[0].toDouble(),
+        pos[1].toDouble(),
+        this.width.toDouble(),
+        this.height.toDouble(),
+        -this.width/2.0,
+        -this.height/2.0,
+        this.width.toDouble(),
+        this.height.toDouble())
+
         ctx.restore()
     }
 
@@ -118,6 +127,42 @@ class CanvasWindow(val height: Int = 768, val battleWidth: Int = 1024, val panel
     }
 }
 
+class StatusWindow(val ctx: CanvasRenderingContext2D) {
+    var bots = mutableMapOf<String, BotStatus>()
+
+    fun updateBot(bot: Robot) {
+        if(bots.containsKey(bot.id)){
+            bots[bot.id]?.robotState = bot
+        }else{
+            bots[bot.id] = BotStatus(bot)
+        }
+    }
+}
+
+class BotStatus(var robotState: Robot) {
+
+    val margin = 10
+    val height = 50
+    val fontWeight = 9
+    val maxHealthSize = 100
+    var targetHealthSize = maxHealthSize
+
+
+    fun render(ctx: CanvasRenderingContext2D) {
+
+    }
+
+    private fun drawEnergyBar(ctx: CanvasRenderingContext2D){
+        val currentHealthSize = (robotState.health/100) * maxHealthSize
+        if(targetHealthSize - currentHealthSize >= 0){
+            targetHealthSize = max(0, --targetHealthSize)
+        }
+        ctx.save()
+        ctx.strokeStyle = "#ffffff"
+        //ctx.strokeRect()
+    }
+
+}
 class Parallax(val numLayers: Int = 12, val baseStar: Int = 6, val ctx: CanvasRenderingContext2D ) {
     var started: Boolean = false
     val bgLayers = mutableListOf<List<Star>>()
@@ -178,7 +223,6 @@ class Parallax(val numLayers: Int = 12, val baseStar: Int = 6, val ctx: CanvasRe
     fun draw(){
         update(0L)
         render()
-        window.setTimeout({draw()}, 30)
     }
 
     private fun inBounds(position : Position) : Boolean{
@@ -192,7 +236,7 @@ data class Coordinates( val x: Int, val y: Int)
 data class Box(val bearing: Float, val coordinates: Coordinates)
 data class Robot(val id: String, val name: String, val box: Box, val radar: List<Coordinates> = emptyList(), val health: Int, val score: Int)
 data class Projectile(val id: String, val robotId: String, val box: Box)
-data class ArenaView(val id: String, val state: ArenaState, val timestamp: Long, val robots: List<Robot>, val projectiles: List<Projectile>)
+data class ArenaView(val id: String, val state: ArenaState, val timestamp: Long, val robots: Array<Robot>, val projectiles: Array<Projectile>)
 enum class ArenaState {
     STARTED, WAITING_FOR_PLAYERS, SIMULATION_RUNNING, OVER, STOPPED;
 }

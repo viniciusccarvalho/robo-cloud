@@ -5,8 +5,9 @@ var dashboard = function (_, Kotlin) {
   'use strict';
   var throwCCE = Kotlin.throwCCE;
   var Unit = Kotlin.kotlin.Unit;
-  var math = Kotlin.kotlin.math;
+  var toString = Kotlin.toString;
   var Kind_CLASS = Kotlin.Kind.CLASS;
+  var math = Kotlin.kotlin.math;
   var IntRange = Kotlin.kotlin.ranges.IntRange;
   var L0 = Kotlin.Long.ZERO;
   var emptyList = Kotlin.kotlin.collections.emptyList_287e2$;
@@ -20,18 +21,29 @@ var dashboard = function (_, Kotlin) {
   var ANIMATIION_HEIGHT;
   var PANEL_WIDTH;
   var connected;
-  function main$lambda(closure$borderWall, closure$parallax) {
+  var canvas;
+  var context;
+  var ship;
+  var parallax;
+  function main$lambda(closure$borderWall) {
     return function (it) {
       var canvasWindow = new CanvasWindow(void 0, void 0, void 0, void 0, closure$borderWall);
       canvasWindow.draw();
-      closure$parallax.draw();
       return Unit;
     };
+  }
+  function main$lambda$lambda(event) {
+    var message = event;
+    var view = JSON.parse(toString(message.data));
+    onViewUpdate(view);
+    return Unit;
   }
   function main$lambda_0(it) {
     var button = $('#connectButton');
     connected = !connected;
     if (connected) {
+      var socket = new WebSocket('ws://localhost:8080/arenas');
+      socket.onmessage = main$lambda$lambda;
       connected = true;
       button.text('Disconnect');
       button.removeClass('btn-primary');
@@ -46,13 +58,18 @@ var dashboard = function (_, Kotlin) {
     return Unit;
   }
   function main(args) {
-    var tmp$, tmp$_0;
-    var canvas = Kotlin.isType(tmp$ = document.getElementById('myCanvas'), HTMLCanvasElement) ? tmp$ : throwCCE();
-    var context = Kotlin.isType(tmp$_0 = canvas.getContext('2d'), CanvasRenderingContext2D) ? tmp$_0 : throwCCE();
-    var borderWall = new Sprite(context, 'https://opengameart.org/sites/default/files/styles/medium/public/ShmupTilesetPRE1.png', 50, 50, [[122, 7], [7, 72], [64, 72]]);
-    var parallax = new Parallax(void 0, void 0, context);
-    window.onload = main$lambda(borderWall, parallax);
+    var borderWall = new Sprite(context, 'images/tilesetpr.png', 50, 50, [[122, 7], [7, 72], [64, 72]]);
+    window.onload = main$lambda(borderWall);
     $('#connectButton').click(main$lambda_0);
+  }
+  function onViewUpdate(view) {
+    parallax.draw();
+    var $receiver = view.robots;
+    var tmp$;
+    for (tmp$ = 0; tmp$ !== $receiver.length; ++tmp$) {
+      var element = $receiver[tmp$];
+      ship.draw_gb4hak$(0, element.box.coordinates.x - 32 | 0, element.box.coordinates.y - 32 | 0, element.box.bearing);
+    }
   }
   function Sprite(ctx, path, width, height, positions) {
     this.ctx = ctx;
@@ -64,17 +81,12 @@ var dashboard = function (_, Kotlin) {
     this.image = Kotlin.isType(tmp$ = window.document.createElement('img'), HTMLImageElement) ? tmp$ : throwCCE();
     this.image.src = this.path;
   }
-  Sprite.prototype.draw_hu04m1$ = function (position, x, y, angle) {
+  Sprite.prototype.draw_gb4hak$ = function (position, x, y, angle) {
     var pos = this.positions[position];
     this.ctx.save();
-    if (angle !== 0.0) {
-      this.ctx.translate(x + this.width / 2.0, y + this.height / 2.0);
-      this.ctx.rotate(angle * math.PI / 180);
-      this.ctx.drawImage(this.image, pos[0], pos[1], this.width, this.height, (-this.width | 0) / 2.0, (-this.width | 0) / 2.0, this.width, this.height);
-    }
-     else {
-      this.ctx.drawImage(this.image, pos[0], pos[1], this.width, this.height, x, y, this.width, this.height);
-    }
+    this.ctx.translate(x + this.width / 2.0, y + this.height / 2.0);
+    this.ctx.rotate(angle);
+    this.ctx.drawImage(this.image, pos[0], pos[1], this.width, this.height, (-this.width | 0) / 2.0, (-this.height | 0) / 2.0, this.width, this.height);
     this.ctx.restore();
   };
   Sprite.$metadata$ = {
@@ -105,28 +117,75 @@ var dashboard = function (_, Kotlin) {
     tmp$_0 = this.totalWidth - this.border | 0;
     tmp$_1 = this.border;
     for (var i = tmp$; i <= tmp$_0; i += tmp$_1) {
-      this.sprite.draw_hu04m1$(0, i, 0, 0.0);
-      this.sprite.draw_hu04m1$(0, i, this.totalHeight - this.border | 0, 180.0);
+      this.sprite.draw_gb4hak$(0, i, 0, 0.0);
+      this.sprite.draw_gb4hak$(0, i, this.totalHeight - this.border | 0, 180.0 * math.PI / 180.0);
     }
     tmp$_2 = this.border;
     tmp$_3 = this.totalHeight - this.border | 0;
     tmp$_4 = this.border;
     for (var j = tmp$_2; j <= tmp$_3; j += tmp$_4) {
-      this.sprite.draw_hu04m1$(0, 0, j, -90.0);
-      this.sprite.draw_hu04m1$(0, this.totalWidth - this.border | 0, j, 90.0);
-      this.sprite.draw_hu04m1$(1, this.battleWidth + BORDER | 0, j, 0.0);
+      this.sprite.draw_gb4hak$(0, 0, j, -90.0 * math.PI / 180.0);
+      this.sprite.draw_gb4hak$(0, this.totalWidth - this.border | 0, j, 90.0 * math.PI / 180.0);
+      this.sprite.draw_gb4hak$(1, this.battleWidth + 50 | 0, j, 0.0);
     }
     this.drawCorners_0();
   };
   CanvasWindow.prototype.drawCorners_0 = function () {
-    this.sprite.draw_hu04m1$(2, 0, 0, -90.0);
-    this.sprite.draw_hu04m1$(2, this.totalWidth - this.border | 0, 0, 0.0);
-    this.sprite.draw_hu04m1$(2, 0, this.totalHeight - this.border | 0, 180.0);
-    this.sprite.draw_hu04m1$(2, this.totalWidth - this.border | 0, this.totalHeight - this.border | 0, 90.0);
+    this.sprite.draw_gb4hak$(2, 0, 0, -90.0 * math.PI / 180.0);
+    this.sprite.draw_gb4hak$(2, this.totalWidth - this.border | 0, 0, 0.0);
+    this.sprite.draw_gb4hak$(2, 0, this.totalHeight - this.border | 0, 180.0 * math.PI / 180.0);
+    this.sprite.draw_gb4hak$(2, this.totalWidth - this.border | 0, this.totalHeight - this.border | 0, 90.0 * math.PI / 180.0);
   };
   CanvasWindow.$metadata$ = {
     kind: Kind_CLASS,
     simpleName: 'CanvasWindow',
+    interfaces: []
+  };
+  var LinkedHashMap_init = Kotlin.kotlin.collections.LinkedHashMap_init_q3lmfv$;
+  function StatusWindow(ctx) {
+    this.ctx = ctx;
+    this.bots = LinkedHashMap_init();
+  }
+  StatusWindow.prototype.updateBot_1b43m2$ = function (bot) {
+    var tmp$;
+    if (this.bots.containsKey_11rb$(bot.id)) {
+      (tmp$ = this.bots.get_11rb$(bot.id)) != null ? (tmp$.robotState = bot) : null;
+    }
+     else {
+      var $receiver = this.bots;
+      var key = bot.id;
+      var value = new BotStatus(bot);
+      $receiver.put_xwzc9p$(key, value);
+    }
+  };
+  StatusWindow.$metadata$ = {
+    kind: Kind_CLASS,
+    simpleName: 'StatusWindow',
+    interfaces: []
+  };
+  function BotStatus(robotState) {
+    this.robotState = robotState;
+    this.margin = 10;
+    this.height = 50;
+    this.fontWeight = 9;
+    this.maxHealthSize = 100;
+    this.targetHealthSize = this.maxHealthSize;
+  }
+  BotStatus.prototype.render_f69bme$ = function (ctx) {
+  };
+  var Math_0 = Math;
+  BotStatus.prototype.drawEnergyBar_0 = function (ctx) {
+    var currentHealthSize = Kotlin.imul(this.robotState.health / 100 | 0, this.maxHealthSize);
+    if ((this.targetHealthSize - currentHealthSize | 0) >= 0) {
+      var b = (this.targetHealthSize = this.targetHealthSize - 1 | 0, this.targetHealthSize);
+      this.targetHealthSize = Math_0.max(0, b);
+    }
+    ctx.save();
+    ctx.strokeStyle = '#ffffff';
+  };
+  BotStatus.$metadata$ = {
+    kind: Kind_CLASS,
+    simpleName: 'BotStatus',
     interfaces: []
   };
   var ArrayList_init = Kotlin.kotlin.collections.ArrayList_init_287e2$;
@@ -147,7 +206,7 @@ var dashboard = function (_, Kotlin) {
       var stars = ArrayList_init();
       tmp$ = Kotlin.imul(this.baseStar, i);
       for (var j = 0; j <= tmp$; j++) {
-        var star = new Star(new Position(random(new IntRange(BORDER, ANIMATION_WIDTH + BORDER | 0)), random(new IntRange(BORDER, ANIMATIION_HEIGHT + BORDER | 0))), 1.0 / i, new Position(0.0, 2.0 / i));
+        var star = new Star(new Position(random(new IntRange(50, 1074)), random(new IntRange(50, 818))), 1.0 / i, new Position(0.0, 2.0 / i));
         stars.add_11rb$(star);
       }
       this.bgLayers.add_11rb$(stars);
@@ -157,7 +216,7 @@ var dashboard = function (_, Kotlin) {
     var tmp$, tmp$_0;
     this.ctx.fillStyle = '#000000';
     this.ctx.strokeStyle = '#FFFFFF';
-    this.ctx.fillRect(BORDER + 1.0, BORDER + 1.0, ANIMATION_WIDTH - 1.0, ANIMATIION_HEIGHT - 1.0);
+    this.ctx.fillRect(50 + 1.0, 50 + 1.0, 1024 - 1.0, 768 - 1.0);
     this.ctx.save();
     this.ctx.strokeStyle = '#FFFFFF';
     this.ctx.fillStyle = '#FFFFFF';
@@ -193,26 +252,19 @@ var dashboard = function (_, Kotlin) {
             star.position.y = star.position.y + star.speed.y;
           }
            else {
-            star.position.y = 1.0 + BORDER;
-            star.position.x = random(new IntRange(BORDER, ANIMATION_WIDTH + BORDER | 0));
+            star.position.y = 1.0 + 50;
+            star.position.x = random(new IntRange(50, 1074));
           }
         }
       }
     }
   };
-  function Parallax$draw$lambda(this$Parallax) {
-    return function () {
-      this$Parallax.draw();
-      return Unit;
-    };
-  }
   Parallax.prototype.draw = function () {
     this.update_s8cxhz$(L0);
     this.render();
-    window.setTimeout(Parallax$draw$lambda(this), 30);
   };
   Parallax.prototype.inBounds_0 = function (position) {
-    return position.x > BORDER && position.x < (BORDER + ANIMATION_WIDTH | 0) && (position.y > BORDER && position.y < (BORDER + ANIMATIION_HEIGHT | 0));
+    return position.x > 50 && position.x < 1074 && (position.y > 50 && position.y < 818);
   };
   Parallax.$metadata$ = {
     kind: Kind_CLASS,
@@ -418,7 +470,7 @@ var dashboard = function (_, Kotlin) {
   ArenaView.prototype.component5 = function () {
     return this.projectiles;
   };
-  ArenaView.prototype.copy_vq14de$ = function (id, state, timestamp, robots, projectiles) {
+  ArenaView.prototype.copy_4jj2p0$ = function (id, state, timestamp, robots, projectiles) {
     return new ArenaView(id === void 0 ? this.id : id, state === void 0 ? this.state : state, timestamp === void 0 ? this.timestamp : timestamp, robots === void 0 ? this.robots : robots, projectiles === void 0 ? this.projectiles : projectiles);
   };
   ArenaView.prototype.toString = function () {
@@ -531,9 +583,32 @@ var dashboard = function (_, Kotlin) {
       connected = value;
     }
   });
+  Object.defineProperty(_, 'canvas', {
+    get: function () {
+      return canvas;
+    }
+  });
+  Object.defineProperty(_, 'context', {
+    get: function () {
+      return context;
+    }
+  });
+  Object.defineProperty(_, 'ship', {
+    get: function () {
+      return ship;
+    }
+  });
+  Object.defineProperty(_, 'parallax', {
+    get: function () {
+      return parallax;
+    }
+  });
   _.main_kand9s$ = main;
+  _.onViewUpdate_xdrcno$ = onViewUpdate;
   _.Sprite = Sprite;
   _.CanvasWindow = CanvasWindow;
+  _.StatusWindow = StatusWindow;
+  _.BotStatus = BotStatus;
   _.Parallax = Parallax;
   _.Position = Position;
   _.Star = Star;
@@ -564,6 +639,11 @@ var dashboard = function (_, Kotlin) {
   ANIMATIION_HEIGHT = 768;
   PANEL_WIDTH = 320;
   connected = false;
+  var tmp$, tmp$_0;
+  canvas = Kotlin.isType(tmp$ = document.getElementById('myCanvas'), HTMLCanvasElement) ? tmp$ : throwCCE();
+  context = Kotlin.isType(tmp$_0 = canvas.getContext('2d'), CanvasRenderingContext2D) ? tmp$_0 : throwCCE();
+  ship = new Sprite(context, 'images/ship.png', 64, 64, [[0, 0]]);
+  parallax = new Parallax(void 0, void 0, context);
   main([]);
   Kotlin.defineModule('dashboard', _);
   return _;
