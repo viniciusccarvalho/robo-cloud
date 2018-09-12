@@ -18,6 +18,7 @@ import org.jbox2d.common.MathUtils
 import org.jbox2d.common.Vec2
 import org.jbox2d.dynamics.*
 import org.jbox2d.dynamics.contacts.Contact
+import java.io.File
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -37,6 +38,7 @@ class ArenaService(val id: String = UUID.randomUUID().toString(), var debugEnabl
     private val robotFixture: FixtureDef = FixtureDef()
     private val bulletFixture: FixtureDef = FixtureDef()
     private val helper = GameHelper
+    private val eventOutput: File
 
     private var liveBots = ConcurrentHashMap<String, ServerRobot>()
     private var destroyedBots = mutableMapOf<String, ServerRobot>()
@@ -64,6 +66,8 @@ class ArenaService(val id: String = UUID.randomUUID().toString(), var debugEnabl
     }
 
     init {
+        eventOutput = File.createTempFile("arena-$id", ".json")
+        logger.info { "Created event ${eventOutput.absolutePath}"}
         val robotShape = PolygonShape()
         robotShape.setAsBox(helper.scaleToWorld(helper.engineConfig.botConfig.box.width) / 2.0f, helper.scaleToWorld(helper.engineConfig.botConfig.box.height) / 2.0f)
         robotFixture.shape = robotShape
@@ -186,7 +190,11 @@ class ArenaService(val id: String = UUID.randomUUID().toString(), var debugEnabl
                     }
                     handleWorldEvents()
                     world.step(1.0f / 30, 8, 3)
-                    liveBots.values.forEach { it.broadcast() }
+                    liveBots.values.forEach {
+                        it.broadcast()
+                        eventOutput.appendText(fromProto(it.getState()).toString()+"\n")
+                    }
+
                 }
                 if (watchers.isNotEmpty()) {
                     val view = ArenaView(this.id, this.state, System.currentTimeMillis(), liveBots.values.map { fromProto(it.getState()) }, projectiles.values.map { fromProto(it.getState()) })

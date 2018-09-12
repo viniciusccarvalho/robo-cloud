@@ -21,7 +21,7 @@ class SpinnerTest {
             val service = GameServiceGrpc.newStub(channel)
             var bots = mutableListOf<SpinnerBot>()
             for (i in 1..4){
-                val spinnerBot = SpinnerBot(service, true)
+                val spinnerBot = SpinnerBot(service, false)
                 spinnerBot.connect()
                 bots.add(spinnerBot)
             }

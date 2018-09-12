@@ -17,25 +17,27 @@ var connected: Boolean = false
 val canvas = document.getElementById("myCanvas") as HTMLCanvasElement
 val context = canvas.getContext("2d") as CanvasRenderingContext2D
 val ship = Sprite(context, "images/ship.png", 64, 64, arrayOf(arrayOf(0, 0)))
+val borderWall = Sprite(context,
+        "images/tilesetpr.png",
+        50,
+        50,
+        arrayOf(
+                arrayOf(122, 7), //bevel
+                arrayOf(7, 72),  //plain
+                arrayOf(64, 72)) // corner
+)
+val canvasWindow = CanvasWindow(sprite = borderWall)
 val parallax = Parallax(ctx = context)
+val statusWindow = StatusWindow(context, BORDER*2+ANIMATION_WIDTH, BORDER)
 
 fun main(args: Array<String>) {
 
 
-    val borderWall = Sprite(context,
-            "images/tilesetpr.png",
-            50,
-            50,
-            arrayOf(
-                    arrayOf(122, 7), //bevel
-                    arrayOf(7, 72),  //plain
-                    arrayOf(64, 72)) // corner
-            )
 
 
 
     window.onload = {
-        val canvasWindow = CanvasWindow(sprite = borderWall)
+
         canvasWindow.draw()
 
     }
@@ -66,9 +68,12 @@ fun main(args: Array<String>) {
 fun onViewUpdate(view: ArenaView) {
     parallax.draw()
     view.robots.forEach { bot ->
-        ship.draw(0, bot.box.coordinates.x -32, bot.box.coordinates.y -32 , bot.box.bearing.toDouble())
-    }
+        ship.draw(0, bot.box.coordinates.x -32+50, bot.box.coordinates.y -32+50 , bot.box.bearing.toDouble())
+        statusWindow.updateBot(bot)
 
+    }
+    statusWindow.render()
+    canvasWindow.draw()
 }
 
 class Sprite(val ctx: CanvasRenderingContext2D, val path: String, val width: Int, val height: Int, val positions: Array<Array<Int>>) {
@@ -127,39 +132,74 @@ class CanvasWindow(val height: Int = 768, val battleWidth: Int = 1024, val panel
     }
 }
 
-class StatusWindow(val ctx: CanvasRenderingContext2D) {
+class StatusWindow(val ctx: CanvasRenderingContext2D, val marginLeft: Int, val marginTop : Int) {
     var bots = mutableMapOf<String, BotStatus>()
 
+    fun render(){
+        ctx.clearRect(marginLeft.toDouble(), marginTop.toDouble(), PANEL_WIDTH.toDouble(), ANIMATIION_HEIGHT.toDouble())
+        bots.values.forEach { bot -> bot.render(ctx) }
+    }
+
     fun updateBot(bot: Robot) {
+
         if(bots.containsKey(bot.id)){
             bots[bot.id]?.robotState = bot
         }else{
-            bots[bot.id] = BotStatus(bot)
+            bots[bot.id] = BotStatus(bot, bots.size, marginLeft, marginTop)
         }
+
     }
 }
 
-class BotStatus(var robotState: Robot) {
+class BotStatus(var robotState: Robot, val index: Int, val marginLeft: Int, val marginTop: Int) {
 
     val margin = 10
     val height = 50
-    val fontWeight = 9
+    val fontHeight = 9.0
     val maxHealthSize = 100
     var targetHealthSize = maxHealthSize
+    val barWidth = 102.0
+    val barHeight = 14.0
+    val healthHeight = 12.0
 
 
     fun render(ctx: CanvasRenderingContext2D) {
-
+        drawEnergyBar(ctx)
+        drawText(ctx)
     }
 
     private fun drawEnergyBar(ctx: CanvasRenderingContext2D){
-        val currentHealthSize = (robotState.health/100) * maxHealthSize
-        if(targetHealthSize - currentHealthSize >= 0){
+        val currentHealthSize = (robotState.health.toDouble()/100) * maxHealthSize
+        val barMarginTop = marginTop + (height * index) + 18 + fontHeight
+        if((targetHealthSize - currentHealthSize) >= 0){
             targetHealthSize = max(0, --targetHealthSize)
         }
         ctx.save()
         ctx.strokeStyle = "#ffffff"
-        //ctx.strokeRect()
+        ctx.strokeRect(marginLeft + 80.0,  barMarginTop, barWidth, barHeight)
+        ctx.fillStyle = "#ff0000"
+        ctx.fillRect(marginLeft + 81.0, barMarginTop+1, maxHealthSize.toDouble(), healthHeight)
+        ctx.fillStyle = "#ff0000"
+        ctx.fillRect(marginLeft + 81.0, barMarginTop+1, targetHealthSize.toDouble() + 1, healthHeight)
+        ctx.fill()
+        ctx.stroke()
+        ctx.restore()
+    }
+
+    private fun drawText(ctx: CanvasRenderingContext2D){
+        val rightColumnOffset = marginLeft + PANEL_WIDTH - margin - 100.0
+        val leftColumnOffset = margin + marginLeft.toDouble()
+        val firstRowOffset = marginTop + margin + fontHeight + (height * index)
+        val secondRowOffset = marginTop + margin + fontHeight + (height * index) + 20.0
+        ctx.save()
+        ctx.fillStyle = "#ffffff"
+        ctx.font = "8px \"Press Start 2P\""
+        ctx.fillText(robotState.name, leftColumnOffset, firstRowOffset)
+        ctx.fillText("Health :", leftColumnOffset, secondRowOffset)
+        ctx.fillText("Score : " + formatScore(robotState.score), rightColumnOffset, firstRowOffset)
+        ctx.fillText("Ammo  :", rightColumnOffset, secondRowOffset)
+        ctx.fill()
+        ctx.restore()
     }
 
 }
@@ -228,6 +268,17 @@ class Parallax(val numLayers: Int = 12, val baseStar: Int = 6, val ctx: CanvasRe
     private fun inBounds(position : Position) : Boolean{
         return ((position.x > BORDER && position.x < BORDER+ANIMATION_WIDTH) && (position.y > BORDER && position.y < BORDER+ANIMATIION_HEIGHT))
     }
+}
+
+fun formatScore(score: Int) : String{
+    val scoreText = score.toString()
+    val builder = StringBuilder()
+    val length = scoreText.length
+    for (i in length..4){
+        builder.append("0")
+    }
+    builder.append(scoreText)
+    return builder.toString()
 }
 
 class Position(var x: Double = 0.0, var y: Double = 0.0)

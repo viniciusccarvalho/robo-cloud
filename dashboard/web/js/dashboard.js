@@ -24,13 +24,13 @@ var dashboard = function (_, Kotlin) {
   var canvas;
   var context;
   var ship;
+  var borderWall;
+  var canvasWindow;
   var parallax;
-  function main$lambda(closure$borderWall) {
-    return function (it) {
-      var canvasWindow = new CanvasWindow(void 0, void 0, void 0, void 0, closure$borderWall);
-      canvasWindow.draw();
-      return Unit;
-    };
+  var statusWindow;
+  function main$lambda(it) {
+    canvasWindow.draw();
+    return Unit;
   }
   function main$lambda$lambda(event) {
     var message = event;
@@ -58,8 +58,7 @@ var dashboard = function (_, Kotlin) {
     return Unit;
   }
   function main(args) {
-    var borderWall = new Sprite(context, 'images/tilesetpr.png', 50, 50, [[122, 7], [7, 72], [64, 72]]);
-    window.onload = main$lambda(borderWall);
+    window.onload = main$lambda;
     $('#connectButton').click(main$lambda_0);
   }
   function onViewUpdate(view) {
@@ -68,8 +67,11 @@ var dashboard = function (_, Kotlin) {
     var tmp$;
     for (tmp$ = 0; tmp$ !== $receiver.length; ++tmp$) {
       var element = $receiver[tmp$];
-      ship.draw_gb4hak$(0, element.box.coordinates.x - 32 | 0, element.box.coordinates.y - 32 | 0, element.box.bearing);
+      ship.draw_gb4hak$(0, element.box.coordinates.x - 32 + 50 | 0, element.box.coordinates.y - 32 + 50 | 0, element.box.bearing);
+      statusWindow.updateBot_1b43m2$(element);
     }
+    statusWindow.render();
+    canvasWindow.draw();
   }
   function Sprite(ctx, path, width, height, positions) {
     this.ctx = ctx;
@@ -142,10 +144,21 @@ var dashboard = function (_, Kotlin) {
     interfaces: []
   };
   var LinkedHashMap_init = Kotlin.kotlin.collections.LinkedHashMap_init_q3lmfv$;
-  function StatusWindow(ctx) {
+  function StatusWindow(ctx, marginLeft, marginTop) {
     this.ctx = ctx;
+    this.marginLeft = marginLeft;
+    this.marginTop = marginTop;
     this.bots = LinkedHashMap_init();
   }
+  StatusWindow.prototype.render = function () {
+    this.ctx.clearRect(this.marginLeft, this.marginTop, 320, 768);
+    var tmp$;
+    tmp$ = this.bots.values.iterator();
+    while (tmp$.hasNext()) {
+      var element = tmp$.next();
+      element.render_f69bme$(this.ctx);
+    }
+  };
   StatusWindow.prototype.updateBot_1b43m2$ = function (bot) {
     var tmp$;
     if (this.bots.containsKey_11rb$(bot.id)) {
@@ -154,7 +167,7 @@ var dashboard = function (_, Kotlin) {
      else {
       var $receiver = this.bots;
       var key = bot.id;
-      var value = new BotStatus(bot);
+      var value = new BotStatus(bot, this.bots.size, this.marginLeft, this.marginTop);
       $receiver.put_xwzc9p$(key, value);
     }
   };
@@ -163,25 +176,57 @@ var dashboard = function (_, Kotlin) {
     simpleName: 'StatusWindow',
     interfaces: []
   };
-  function BotStatus(robotState) {
+  function BotStatus(robotState, index, marginLeft, marginTop) {
     this.robotState = robotState;
+    this.index = index;
+    this.marginLeft = marginLeft;
+    this.marginTop = marginTop;
     this.margin = 10;
     this.height = 50;
-    this.fontWeight = 9;
+    this.fontHeight = 9.0;
     this.maxHealthSize = 100;
     this.targetHealthSize = this.maxHealthSize;
+    this.barWidth = 102.0;
+    this.barHeight = 14.0;
+    this.healthHeight = 12.0;
   }
   BotStatus.prototype.render_f69bme$ = function (ctx) {
+    this.drawEnergyBar_0(ctx);
+    this.drawText_0(ctx);
   };
   var Math_0 = Math;
   BotStatus.prototype.drawEnergyBar_0 = function (ctx) {
-    var currentHealthSize = Kotlin.imul(this.robotState.health / 100 | 0, this.maxHealthSize);
-    if ((this.targetHealthSize - currentHealthSize | 0) >= 0) {
+    var currentHealthSize = this.robotState.health / 100 * this.maxHealthSize;
+    var barMarginTop = (this.marginTop + Kotlin.imul(this.height, this.index) + 18 | 0) + this.fontHeight;
+    if (this.targetHealthSize - currentHealthSize >= 0) {
       var b = (this.targetHealthSize = this.targetHealthSize - 1 | 0, this.targetHealthSize);
       this.targetHealthSize = Math_0.max(0, b);
     }
     ctx.save();
     ctx.strokeStyle = '#ffffff';
+    ctx.strokeRect(this.marginLeft + 80.0, barMarginTop, this.barWidth, this.barHeight);
+    ctx.fillStyle = '#ff0000';
+    ctx.fillRect(this.marginLeft + 81.0, barMarginTop + 1, currentHealthSize, this.healthHeight);
+    ctx.fillStyle = '#ff0000';
+    ctx.fillRect(this.marginLeft + 81.0, barMarginTop + 1, this.maxHealthSize + 1, this.healthHeight);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  };
+  BotStatus.prototype.drawText_0 = function (ctx) {
+    var rightColumnOffset = (this.marginLeft + 320 - this.margin | 0) - 100.0;
+    var leftColumnOffset = this.margin + this.marginLeft;
+    var firstRowOffset = (this.marginTop + this.margin | 0) + this.fontHeight + Kotlin.imul(this.height, this.index);
+    var secondRowOffset = (this.marginTop + this.margin | 0) + this.fontHeight + Kotlin.imul(this.height, this.index) + 20.0;
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '8px "Press Start 2P"';
+    ctx.fillText(this.robotState.name, leftColumnOffset, firstRowOffset);
+    ctx.fillText('Health :', leftColumnOffset, secondRowOffset);
+    ctx.fillText('Score : 0000', rightColumnOffset, firstRowOffset);
+    ctx.fillText('Ammo  :', rightColumnOffset, secondRowOffset);
+    ctx.fill();
+    ctx.restore();
   };
   BotStatus.$metadata$ = {
     kind: Kind_CLASS,
@@ -598,9 +643,24 @@ var dashboard = function (_, Kotlin) {
       return ship;
     }
   });
+  Object.defineProperty(_, 'borderWall', {
+    get: function () {
+      return borderWall;
+    }
+  });
+  Object.defineProperty(_, 'canvasWindow', {
+    get: function () {
+      return canvasWindow;
+    }
+  });
   Object.defineProperty(_, 'parallax', {
     get: function () {
       return parallax;
+    }
+  });
+  Object.defineProperty(_, 'statusWindow', {
+    get: function () {
+      return statusWindow;
     }
   });
   _.main_kand9s$ = main;
@@ -643,7 +703,10 @@ var dashboard = function (_, Kotlin) {
   canvas = Kotlin.isType(tmp$ = document.getElementById('myCanvas'), HTMLCanvasElement) ? tmp$ : throwCCE();
   context = Kotlin.isType(tmp$_0 = canvas.getContext('2d'), CanvasRenderingContext2D) ? tmp$_0 : throwCCE();
   ship = new Sprite(context, 'images/ship.png', 64, 64, [[0, 0]]);
+  borderWall = new Sprite(context, 'images/tilesetpr.png', 50, 50, [[122, 7], [7, 72], [64, 72]]);
+  canvasWindow = new CanvasWindow(void 0, void 0, void 0, void 0, borderWall);
   parallax = new Parallax(void 0, void 0, context);
+  statusWindow = new StatusWindow(context, 1124, 50);
   main([]);
   Kotlin.defineModule('dashboard', _);
   return _;
