@@ -72,8 +72,23 @@ fun onViewUpdate(view: ArenaView) {
         statusWindow.updateBot(bot)
 
     }
+    view.projectiles.forEach {
+        drawProjectile(it)
+    }
     statusWindow.render()
     canvasWindow.draw()
+}
+
+
+fun drawProjectile(projectile: Projectile){
+    context.save()
+
+    context.beginPath()
+    context.fillStyle = "#ffff00"
+    context.translate(projectile.box.coordinates.x.toDouble()+18, projectile.box.coordinates.y.toDouble()+18)
+    context.arc(0.0, 0.0, 3.0, 0.0, 2 * PI )
+    context.fill()
+    context.restore()
 }
 
 class Sprite(val ctx: CanvasRenderingContext2D, val path: String, val width: Int, val height: Int, val positions: Array<Array<Int>>) {
@@ -171,16 +186,16 @@ class BotStatus(var robotState: Robot, val index: Int, val marginLeft: Int, val 
     private fun drawEnergyBar(ctx: CanvasRenderingContext2D){
         val currentHealthSize = (robotState.health.toDouble()/100) * maxHealthSize
         val barMarginTop = marginTop + (height * index) + 18 + fontHeight
-        if((targetHealthSize - currentHealthSize) >= 0){
-            targetHealthSize = max(0, --targetHealthSize)
+        if((this.targetHealthSize - currentHealthSize) >= 0){
+            this.targetHealthSize = max(0, --this.targetHealthSize)
         }
         ctx.save()
         ctx.strokeStyle = "#ffffff"
         ctx.strokeRect(marginLeft + 80.0,  barMarginTop, barWidth, barHeight)
         ctx.fillStyle = "#ff0000"
-        ctx.fillRect(marginLeft + 81.0, barMarginTop+1, maxHealthSize.toDouble(), healthHeight)
-        ctx.fillStyle = "#ff0000"
-        ctx.fillRect(marginLeft + 81.0, barMarginTop+1, targetHealthSize.toDouble() + 1, healthHeight)
+        ctx.fillRect(marginLeft + 81.0, barMarginTop+1, this.maxHealthSize.toDouble(), healthHeight)
+        ctx.fillStyle = "yellow"
+        ctx.fillRect(marginLeft + 81.0, barMarginTop+1, this.targetHealthSize.toDouble() + 1, healthHeight)
         ctx.fill()
         ctx.stroke()
         ctx.restore()
@@ -271,10 +286,14 @@ class Parallax(val numLayers: Int = 12, val baseStar: Int = 6, val ctx: CanvasRe
 }
 
 fun formatScore(score: Int) : String{
-    val scoreText = score.toString()
+    val scoreText = abs(score).toString()
     val builder = StringBuilder()
-    val length = scoreText.length
-    for (i in length..4){
+    if(score < 0){
+        builder.append("-")
+    }else{
+        builder.append(" ")
+    }
+    for (i in scoreText.length..3){
         builder.append("0")
     }
     builder.append(scoreText)

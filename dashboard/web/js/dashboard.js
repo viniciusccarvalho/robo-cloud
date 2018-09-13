@@ -6,10 +6,12 @@ var dashboard = function (_, Kotlin) {
   var throwCCE = Kotlin.throwCCE;
   var Unit = Kotlin.kotlin.Unit;
   var toString = Kotlin.toString;
-  var Kind_CLASS = Kotlin.Kind.CLASS;
   var math = Kotlin.kotlin.math;
+  var Kind_CLASS = Kotlin.Kind.CLASS;
   var IntRange = Kotlin.kotlin.ranges.IntRange;
   var L0 = Kotlin.Long.ZERO;
+  var abs = Kotlin.kotlin.math.abs_za3lpa$;
+  var StringBuilder_init = Kotlin.kotlin.text.StringBuilder_init;
   var emptyList = Kotlin.kotlin.collections.emptyList_287e2$;
   var Enum = Kotlin.kotlin.Enum;
   var throwISE = Kotlin.throwISE;
@@ -70,8 +72,23 @@ var dashboard = function (_, Kotlin) {
       ship.draw_gb4hak$(0, element.box.coordinates.x - 32 + 50 | 0, element.box.coordinates.y - 32 + 50 | 0, element.box.bearing);
       statusWindow.updateBot_1b43m2$(element);
     }
+    var $receiver_0 = view.projectiles;
+    var tmp$_0;
+    for (tmp$_0 = 0; tmp$_0 !== $receiver_0.length; ++tmp$_0) {
+      var element_0 = $receiver_0[tmp$_0];
+      drawProjectile(element_0);
+    }
     statusWindow.render();
     canvasWindow.draw();
+  }
+  function drawProjectile(projectile) {
+    context.save();
+    context.beginPath();
+    context.fillStyle = '#ffff00';
+    context.translate(projectile.box.coordinates.x + 18, projectile.box.coordinates.y + 18);
+    context.arc(0.0, 0.0, 3.0, 0.0, 2 * math.PI);
+    context.fill();
+    context.restore();
   }
   function Sprite(ctx, path, width, height, positions) {
     this.ctx = ctx;
@@ -206,9 +223,9 @@ var dashboard = function (_, Kotlin) {
     ctx.strokeStyle = '#ffffff';
     ctx.strokeRect(this.marginLeft + 80.0, barMarginTop, this.barWidth, this.barHeight);
     ctx.fillStyle = '#ff0000';
-    ctx.fillRect(this.marginLeft + 81.0, barMarginTop + 1, currentHealthSize, this.healthHeight);
-    ctx.fillStyle = '#ff0000';
-    ctx.fillRect(this.marginLeft + 81.0, barMarginTop + 1, this.maxHealthSize + 1, this.healthHeight);
+    ctx.fillRect(this.marginLeft + 81.0, barMarginTop + 1, this.maxHealthSize, this.healthHeight);
+    ctx.fillStyle = 'yellow';
+    ctx.fillRect(this.marginLeft + 81.0, barMarginTop + 1, this.targetHealthSize + 1, this.healthHeight);
     ctx.fill();
     ctx.stroke();
     ctx.restore();
@@ -223,7 +240,7 @@ var dashboard = function (_, Kotlin) {
     ctx.font = '8px "Press Start 2P"';
     ctx.fillText(this.robotState.name, leftColumnOffset, firstRowOffset);
     ctx.fillText('Health :', leftColumnOffset, secondRowOffset);
-    ctx.fillText('Score : 0000', rightColumnOffset, firstRowOffset);
+    ctx.fillText('Score : ' + formatScore(this.robotState.score), rightColumnOffset, firstRowOffset);
     ctx.fillText('Ammo  :', rightColumnOffset, secondRowOffset);
     ctx.fill();
     ctx.restore();
@@ -316,6 +333,18 @@ var dashboard = function (_, Kotlin) {
     simpleName: 'Parallax',
     interfaces: []
   };
+  function formatScore(score) {
+    var scoreText = abs(score).toString();
+    var builder = StringBuilder_init();
+    if (score < 0) {
+      builder.append_gw00v9$('-');
+    }
+    for (var i = scoreText.length; i <= 3; i++) {
+      builder.append_gw00v9$('0');
+    }
+    builder.append_gw00v9$(scoreText);
+    return builder.toString();
+  }
   function Position(x, y) {
     if (x === void 0)
       x = 0.0;
@@ -665,11 +694,13 @@ var dashboard = function (_, Kotlin) {
   });
   _.main_kand9s$ = main;
   _.onViewUpdate_xdrcno$ = onViewUpdate;
+  _.drawProjectile_dzs3t$ = drawProjectile;
   _.Sprite = Sprite;
   _.CanvasWindow = CanvasWindow;
   _.StatusWindow = StatusWindow;
   _.BotStatus = BotStatus;
   _.Parallax = Parallax;
+  _.formatScore_za3lpa$ = formatScore;
   _.Position = Position;
   _.Star = Star;
   _.Coordinates = Coordinates;
