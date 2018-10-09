@@ -339,6 +339,9 @@ var dashboard = function (_, Kotlin) {
     if (score < 0) {
       builder.append_gw00v9$('-');
     }
+     else {
+      builder.append_gw00v9$(' ');
+    }
     for (var i = scoreText.length; i <= 3; i++) {
       builder.append_gw00v9$('0');
     }
